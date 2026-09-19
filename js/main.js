@@ -5,8 +5,8 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=9";
-import { buildAnchorContent } from "./sceneBuilder.js?v=9";
+import { triggers } from "./config.js?v=10";
+import { buildAnchorContent } from "./sceneBuilder.js?v=10";
 
 // Same problem, same fix, separate counter: targets.mind has no version in
 // its own contents to detect staleness by, so every recompile needs this
@@ -14,7 +14,7 @@ import { buildAnchorContent } from "./sceneBuilder.js?v=9";
 // against old trigger images (this bit us once - two brand new trigger
 // images "didn't load" because the phone was still holding a cached
 // targets.mind from before they existed).
-const MIND_VERSION = 3;
+const MIND_VERSION = 4;
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");

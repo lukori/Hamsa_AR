@@ -54,12 +54,20 @@ export const triggers = [
         // 0). Source was 1446x2012 @ 35 Mbps / 43.7MB with an unused audio
         // track (always muted for AR autoplay anyway) - re-encoded to
         // ~6.7 Mbps / 8.4MB, no audio, same resolution; no visible quality
-        // difference on inspection. Width/height below match its portrait
-        // aspect ratio (matches the trigger image's own aspect too).
+        // difference on inspection.
+        //
+        // width/height: MindAR always normalizes the anchor's local space
+        // so the TRIGGER IMAGE's own width = 1 unit, regardless of the
+        // video's own pixel size - so to fully cover the image (rather than
+        // float smaller than it), height must be the trigger image's own
+        // height/width ratio, not the video's. yellow_poster_trigger.jpg is
+        // 808x1125, so height = 1125/808 = 1.392 covers it exactly. (The
+        // video's own aspect, 1446x2012 = 0.7187, is close enough to the
+        // image's, 808x1125 = 0.7182, that it isn't visibly stretched.)
         type: "video",
         src: "assets/videos/fishy-trigger01.mp4",
-        width: 0.719,
-        height: 1,
+        width: 1,
+        height: 1.392,
         loop: true,
       },
     ],
@@ -134,10 +142,13 @@ export const triggers = [
     label: "3D model (GLB)",
     content: [
       {
-        // Real GLB model - a fish, matching the reference trigger image
-        // this fish illustration was originally generated from
-        // (assets/targets-source/redblue_poster_trigger.jpg, compiled into
-        // targets.mind at index 4). Original export was 1.9M triangles /
+        // Real GLB model - a fish. Trigger image is back to the generated
+        // placeholder (assets/targets-source/trigger-05.png, compiled into
+        // targets.mind at index 4) - a real "redblue" poster image was
+        // tried here but was visually too similar to trigger-01's poster
+        // (both busy halftone patterns), and MindAR confused the two,
+        // triggering both anchors off either image. Original GLB export
+        // was 1.9M triangles /
         // 55MB (a raw AI image-to-3D output); decimated with gltf-transform
         // (meshoptimizer simplify + meshopt compression + 1024px texture)
         // to ~168k triangles / 1.25MB, which held up visually very well -

@@ -20,15 +20,25 @@ exhibition content — swap in the real trigger images and media before the show
 | `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
 | `trigger-03` | `trigger-03.png` (placeholder) | Transparent animated overlay (placeholder) | `assets/videos/03-alpha-glow-sbs.mp4` |
 | `trigger-04` | `trigger-04.png` (placeholder) | Combination: video + 3D model (placeholder) | `assets/videos/04-combo-video.mp4` |
-| `trigger-05` | `redblue_poster_trigger.jpg` (real) | Real GLB model | `assets/models/fisher-fish.glb` |
+| `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
-`trigger-01` and `trigger-05` now use real exhibition images and (for
-`trigger-01`) real video content, no longer generated placeholders — see
-"Preparing real trigger images" below for the compile step whenever you swap
-another one in. Note the video on `trigger-01` came in at 35 Mbps / 43.7MB
-with an audio track that's never used (all video content here is always
-muted, for autoplay); re-encoded to ~6.7 Mbps / 8.4MB with audio stripped, no
-visible quality difference on inspection — worth doing for any new video
+`trigger-01` now uses a real exhibition image and real video content, no
+longer generated placeholders — see "Preparing real trigger images" below
+for the compile step whenever you swap another one in. Note the video came
+in at 35 Mbps / 43.7MB with an audio track that's never used (all video
+content here is always muted, for autoplay); re-encoded to ~6.7 Mbps /
+8.4MB with audio stripped, no visible quality difference on inspection —
+worth doing for any new video
+
+`trigger-05` briefly used a second real poster image
+(`redblue_poster_trigger.jpg`) but it was reverted back to the generated
+placeholder: it was visually too similar to `trigger-01`'s poster (both busy
+halftone/pop-art patterns), and MindAR confused the two targets — showing
+both anchors' content when only one image was in frame. **When choosing
+multiple real trigger images, make sure they're distinguishable from each
+other, not just individually detailed** — the brief's "rich in detail and
+contrast" guidance is about each image alone, but a full multi-target set
+also needs images that don't resemble each other.
 handed off for a trigger, not just this one.
 
 The particle-cloud/glow experiments that used to live on `trigger-02` (a
@@ -221,6 +231,12 @@ From the brief — worth re-reading before printing anything:
 
 - High resolution, rich in detail and contrast, **not** symmetric or
   repetitive, **not** on a glossy/reflective surface.
+- **Distinguishable from your OTHER trigger images, not just detailed on
+  their own.** Confirmed the hard way: two busy halftone/pop-art posters
+  used as separate triggers were similar enough that MindAR matched either
+  one to both targets, triggering both anchors' content at once from a
+  single image. Compile the full set together and test each image against
+  the whole set, not one at a time in isolation.
 - Compile and check the feature distribution in `tools/compile.html` (or the
   hosted version at https://hiukim.github.io/mind-ar-js-doc/tools/compile/)
   before finalizing — you want good, evenly distributed features, not a
