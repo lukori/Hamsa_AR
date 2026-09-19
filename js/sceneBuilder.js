@@ -91,31 +91,121 @@ const radialBackdropVertexShader = /* glsl */ `
 `;
 const radialBackdropFragmentShader = /* glsl */ `
   uniform vec3 color;
+  uniform float opacity;
+  uniform float softness;
   varying vec2 vUv;
   void main() {
     float d = length(vUv - 0.5) * 2.0;
-    float alpha = smoothstep(1.0, 0.15, d);
-    gl_FragColor = vec4(color, alpha);
+    float alpha = smoothstep(1.0, softness, d);
+    gl_FragColor = vec4(color, alpha * opacity);
   }
 `;
+
+// Reused for the vignette backdrop and for the cheap eye-rain "shadow"
+// decals below - a soft circular falloff with no sprite texture needed.
+function makeRadialGlowMaterial(color, opacity = 1, softness = 0.15) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(color) },
+      opacity: { value: opacity },
+      softness: { value: softness },
+    },
+    vertexShader: radialBackdropVertexShader,
+    fragmentShader: radialBackdropFragmentShader,
+    transparent: true,
+    depthWrite: false,
+  });
+}
 
 function buildBackdropItem(item) {
   const geometry = new THREE.PlaneGeometry(item.width ?? 1, item.height ?? 1);
   const color = new THREE.Color(item.color ?? 0xffffff);
   const material = item.radial
-    ? new THREE.ShaderMaterial({
-        uniforms: { color: { value: color } },
-        vertexShader: radialBackdropVertexShader,
-        fragmentShader: radialBackdropFragmentShader,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      })
+    ? makeRadialGlowMaterial(color, 1, 0.15)
     : new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
   if (item.position) mesh.position.set(...item.position);
   if (item.rotation) mesh.rotation.set(...item.rotation);
   return { mesh };
+}
+
+// A field of camera-facing sprites (same source image, varying size and 3D
+// position) filling an imaginary box in front of the trigger image - e.g.
+// "a rain of eyes". The box's back face sits on the image plane (the image
+// is "one wall of the box"); everything else floats in front of it, toward
+// the viewer. Arranged on a jittered 3D grid (not pure random) so it reads
+// as an organized, immersive scatter rather than a messy cloud - a
+// stratified/jittered grid is the standard way to get "random-looking but
+// not clumpy" placement. Each sprite optionally gets a soft circular
+// "shadow" decal on the wall behind it (a small offset dark blob, not a
+// real dynamic shadow - camera-facing billboards don't have normals for
+// real shadow-mapping to work with, and it isn't worth the render cost
+// here anyway), suggesting a light source in front of the box.
+function buildSpriteRainItem(item) {
+  const group = new THREE.Group();
+
+  const texture = new THREE.TextureLoader().load(item.src);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const boxWidth = item.boxWidth ?? 1;
+  const boxHeight = item.boxHeight ?? 3;
+  const boxDepth = item.boxDepth ?? 0.8;
+  const rows = item.rows ?? 6;
+  const cols = item.cols ?? 3;
+  const depthLayers = item.depthLayers ?? 2;
+  const minScale = item.minScale ?? 0.09;
+  const maxScale = item.maxScale ?? 0.22;
+  const wallZ = item.wallZ ?? 0.02; // just in front of the image plane, avoids z-fighting
+  const jitter = item.jitter ?? 0.55; // fraction of cell size
+  const castShadow = item.shadow !== false;
+  const shadowOpacity = item.shadowOpacity ?? 0.3;
+  const shadowOffset = item.shadowOffset ?? [0.02, -0.025];
+
+  const cellW = boxWidth / cols;
+  const cellH = boxHeight / rows;
+  const cellD = boxDepth / depthLayers;
+
+  const shadowMaterial = castShadow ? makeRadialGlowMaterial(0x000000, shadowOpacity, 0.05) : null;
+  const shadowGeometry = castShadow ? new THREE.PlaneGeometry(1, 1) : null;
+  // Shared across every sprite instance - they're visually identical, only
+  // position/scale differ (those live on the Object3D, not the material),
+  // so one instance avoids needless material/texture duplication.
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+
+  for (let k = 0; k < depthLayers; k++) {
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const cx = -boxWidth / 2 + cellW * (j + 0.5);
+        const cy = boxHeight / 2 - cellH * (i + 0.5); // top row first = rain falls top to bottom
+        const cz = wallZ + cellD * (k + 0.5);
+
+        const x = cx + (Math.random() - 0.5) * cellW * jitter;
+        const y = cy + (Math.random() - 0.5) * cellH * jitter;
+        const z = cz + (Math.random() - 0.5) * cellD * jitter;
+
+        // Slightly smaller the further back, on top of independent random
+        // size variance - both size AND depth vary, per the brief for this.
+        const depthT = (z - wallZ) / boxDepth;
+        const scale = (minScale + Math.random() * (maxScale - minScale)) * (1 - depthT * 0.25);
+
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.setScalar(scale);
+        sprite.position.set(x, y, z);
+        group.add(sprite);
+
+        if (castShadow) {
+          const shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
+          shadowMesh.scale.setScalar(scale * 1.4);
+          shadowMesh.position.set(x + shadowOffset[0], y + shadowOffset[1], wallZ * 0.4);
+          group.add(shadowMesh);
+        }
+      }
+    }
+  }
+
+  if (item.position) group.position.set(...item.position);
+  if (item.rotation) group.rotation.set(...item.rotation);
+  return { mesh: group };
 }
 
 const PRIMITIVE_GEOMETRIES = {
@@ -349,6 +439,9 @@ export async function buildAnchorContent(group, triggerConfig) {
       const { mesh, update } = await buildPointsItem(item);
       group.add(mesh);
       if (update) updaters.push(update);
+    } else if (item.type === "sprite-rain") {
+      const { mesh } = buildSpriteRainItem(item);
+      group.add(mesh);
     } else {
       console.warn(`Unknown content type "${item.type}" in ${triggerConfig.id}`);
     }

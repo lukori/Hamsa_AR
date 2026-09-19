@@ -40,6 +40,17 @@
 //                    `colorCore`/`colorOuter` (gradient by distance from center) -
 //                    pair the gradient with `blending: "additive"` for a bright glow
 //                    on a dark backdrop; use flat `color` for a solid look on light.
+//   "sprite-rain"  - many camera-facing copies of one image (`src`), scattered through
+//                    an imaginary box in front of the trigger image (the image is the
+//                    box's back wall). `boxWidth`/`boxHeight`/`boxDepth` size the box;
+//                    `rows`/`cols`/`depthLayers` set a jittered grid (not pure random,
+//                    so it reads as organized) - `jitter` (0-1) controls how much each
+//                    instance wanders from its grid cell. `minScale`/`maxScale` vary
+//                    size per instance, on top of a size-with-depth falloff. `shadow`
+//                    adds a soft offset dark decal behind each sprite on the wall
+//                    (`shadowOpacity`, `shadowOffset`) - a cheap fake, not a real
+//                    dynamic shadow (camera-facing sprites have no normals for real
+//                    shadow-mapping to use).
 
 export const triggers = [
   {
@@ -99,18 +110,33 @@ export const triggers = [
   {
     id: "trigger-03",
     targetIndex: 2,
-    label: "Transparent animated overlay",
+    label: "Rain of eyes",
     content: [
       {
-        type: "alpha-video",
-        src: "assets/videos/03-alpha-glow-sbs.mp4",
-        width: 1,
-        height: 1,
-        loop: true,
+        // A field of the same eye icon (assets/textures/eye.png) at varying
+        // sizes and 3D depths, filling an imaginary box the same width as
+        // the trigger image and 3x its height, with the image as the box's
+        // back wall - eyes appear to rain down through and around the
+        // printed image, extending above and below its physical bounds.
+        // Arranged on a jittered grid (rows x cols x depthLayers), not pure
+        // random, so it reads as organized rather than messy. Each eye gets
+        // a soft offset shadow decal on the wall behind it, suggesting a
+        // light from the front.
+        type: "sprite-rain",
+        src: "assets/textures/eye.png",
+        boxWidth: 1,
+        boxHeight: 3,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 3,
+        depthLayers: 2,
+        minScale: 0.09,
+        maxScale: 0.22,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
       },
     ],
-    onFound: "play",
-    onLost: "pause",
   },
   {
     id: "trigger-04",

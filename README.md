@@ -18,7 +18,7 @@ exhibition content — swap in the real trigger images and media before the show
 | --- | --- | --- | --- |
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
 | `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
-| `trigger-03` | `trigger-03.png` (placeholder) | Transparent animated overlay (placeholder) | `assets/videos/03-alpha-glow-sbs.mp4` |
+| `trigger-03` | `trigger-03.png` (placeholder) | Rain of eyes (real content, placeholder trigger image) | `assets/textures/eye.png` |
 | `trigger-04` | `trigger-04.png` (placeholder) | Combination: video + 3D model (placeholder) | `assets/videos/04-combo-video.mp4` |
 | `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
@@ -81,6 +81,7 @@ iPhone).
     /targets-source           the 5 source trigger images (currently placeholders)
     /models                   GLB files go here
     /videos                   MP4 files go here
+    /textures                 plain images used as textures (e.g. "sprite-rain" sources), not trigger images
   /tools
     compile.html              local, offline tool to compile new trigger images into targets.mind
     points-from-image.html    local, offline tool to turn a reference image into a "points" asset
@@ -162,6 +163,18 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      individual orbit (`driftAmount` = orbit radius, `driftSpeed` = how fast)
      so the cloud shimmers in place rather than looking rigid. See
      "Particle-cloud content" below for how to make one.
+   - `{ type: "sprite-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset }` —
+     many camera-facing copies of one image, scattered through an imaginary
+     box in front of the trigger image (the image is the box's back wall).
+     Placed on a jittered grid (`rows` × `cols` × `depthLayers`, wandering up
+     to `jitter` (0–1) of a cell's size) rather than pure random, so it reads
+     as an organized scatter instead of a messy cloud. `minScale`/`maxScale`
+     vary each instance's size on top of a size-with-depth falloff.
+     `shadow: true` adds a soft offset dark decal on the wall behind each
+     sprite (`shadowOpacity`, `shadowOffset`) suggesting a light from the
+     front — a cheap fake, not a real dynamic shadow (camera-facing sprites
+     have no surface normals for real shadow-mapping to use). `trigger-03`
+     uses this for a "rain of eyes" effect.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
