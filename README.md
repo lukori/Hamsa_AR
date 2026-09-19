@@ -294,16 +294,23 @@ From the brief — worth re-reading before printing anything:
 ## Updating the deployed site (cache-busting)
 
 GitHub Pages caches static files for 10 minutes, and phone browsers often
-hold onto JS modules even longer — so after pushing a change to `config.js`
-or `sceneBuilder.js`, a device that already opened the app once can keep
-running the **old** logic even though the server has the new file (this bit
-us once: a content change looked "not applied" on a phone that had visited
-minutes earlier, right after the plain HTML/CSS visibly changed). `index.html`
-and `main.js` reference those two files with a `?v=N` query string precisely
-to force a fresh fetch — **bump that number in both places whenever you
-change `config.js` or `sceneBuilder.js`**, or a previously-visited device may
-not see the update. If you ever hit this despite bumping it, a hard
-refresh / clearing site data on the phone also fixes it.
+hold onto JS modules even longer — so after pushing a change to any JS file,
+a device that already opened the app once can keep running the **old**
+version even though the server has the new one, because the *URL* it's
+cached under hasn't changed (this has bitten us twice: once for
+`config.js`/`sceneBuilder.js`, once for `main.js` itself — editing a file
+without also bumping *its own* reference's `?v=N` is the same bug in a new
+place, easy to miss when the edit feels "small"). There are three separate
+version markers, each covering a different file, and **each needs bumping
+only when its own file changes, but don't forget one just because the edit
+was to a different file**:
+
+- `index.html`'s `<script src="js/main.js?v=N">` — bump when `main.js` itself changes.
+- `main.js`'s `import ... "./config.js?v=N"` — bump when `config.js` changes.
+- `main.js`'s `import ... "./sceneBuilder.js?v=N"` — bump when `sceneBuilder.js` changes.
+
+If you ever hit this despite bumping the right one, a hard refresh /
+clearing site data on the phone also fixes it.
 
 **The same problem applies to `assets/targets.mind`**, separately — it has
 its own cache-buster (`MIND_VERSION` in `main.js`, appended as `?v=N` to
