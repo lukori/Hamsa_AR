@@ -225,6 +225,21 @@ a `sizes` and `shift` attribute and a `time` uniform) — re-tuned for a small,
 dark, on-white cloud rather than a large glowing additive-blended one, since
 additive blending washes out dark colors against a light background.
 
+## Tracking smoothness (jitter)
+
+MindAR smooths the tracked pose with a [OneEuroFilter](https://cristal.univ-lille.fr/~casiez/1euro/), tuned in `main.js`'s
+`MindARThree({ filterMinCF, filterBeta, ... })` call. Its own defaults
+(`filterMinCF: 0.001`, `filterBeta: 1000`) favor responsiveness over
+smoothness, which shows up as visible jitter/shake on anchored content —
+most noticeable on anything also spinning (like `trigger-05`'s model),
+since tracking noise compounds with the real rotation. Currently set to
+`filterMinCF: 0.0001, filterBeta: 10` — meaningfully smoother, at the cost
+of a bit more lag when you move the phone quickly. Per MindAR's own
+[tracking config docs](https://hiukim.github.io/mind-ar-js-doc/quick-start/tracking-config/):
+lowering `filterMinCF` reduces jitter, raising `filterBeta` reduces delay —
+they trade off against each other, so re-tune here if it ever feels too
+laggy or too shaky.
+
 ## Preparing real trigger images
 
 From the brief — worth re-reading before printing anything:

@@ -55,6 +55,15 @@ async function startExperience() {
       uiLoading: "no",
       uiScanning: "no",
       uiError: "no",
+      // MindAR smooths tracked pose with a OneEuroFilter; its defaults
+      // (filterMinCF: 0.001, filterBeta: 1000) favor responsiveness over
+      // smoothness, which reads as jitter/shake on anchored content -
+      // especially noticeable on trigger-05's model since it's also
+      // spinning, so any pose noise compounds with real rotation. Lowering
+      // both trades a bit of lag (when you move the phone quickly) for a
+      // much steadier hold. Tune further here if it still feels off.
+      filterMinCF: 0.0001,
+      filterBeta: 10,
     });
     const { renderer, scene, camera } = mindarThree;
 
