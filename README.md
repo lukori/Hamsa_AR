@@ -274,6 +274,15 @@ change `config.js` or `sceneBuilder.js`**, or a previously-visited device may
 not see the update. If you ever hit this despite bumping it, a hard
 refresh / clearing site data on the phone also fixes it.
 
+**The same problem applies to `assets/targets.mind`**, separately — it has
+its own cache-buster (`MIND_VERSION` in `main.js`, appended as `?v=N` to
+`imageTargetSrc`) because it changes on a different schedule than the JS
+files (whenever you recompile trigger images, not whenever you edit code).
+**Bump `MIND_VERSION` every time you replace `targets.mind`.** Symptom of
+forgetting: brand new trigger images silently "don't work" / "don't load" on
+a phone that already opened the app, because it's still holding an older
+compiled target set that has no idea those images exist yet.
+
 ## Deployment
 
 Fully static, so Vercel, Netlify, or GitHub Pages all work with zero config —

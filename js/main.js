@@ -8,6 +8,14 @@ import * as THREE from "three";
 import { triggers } from "./config.js?v=9";
 import { buildAnchorContent } from "./sceneBuilder.js?v=9";
 
+// Same problem, same fix, separate counter: targets.mind has no version in
+// its own contents to detect staleness by, so every recompile needs this
+// bumped too, or a device that already opened the app can keep matching
+// against old trigger images (this bit us once - two brand new trigger
+// images "didn't load" because the phone was still holding a cached
+// targets.mind from before they existed).
+const MIND_VERSION = 3;
+
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
 const errorScreen = document.getElementById("error-screen");
@@ -42,7 +50,7 @@ async function startExperience() {
   try {
     const mindarThree = new MindARThree({
       container,
-      imageTargetSrc: "assets/targets.mind",
+      imageTargetSrc: `assets/targets.mind?v=${MIND_VERSION}`,
       maxTrack: triggers.length,
       uiLoading: "no",
       uiScanning: "no",
