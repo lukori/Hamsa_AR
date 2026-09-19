@@ -18,10 +18,14 @@
 //                    until real GLB assets are ready, and reusable for any trigger
 //                    that just needs simple procedural motion.
 //   "points"       - a static point cloud (THREE.Points) loaded from a raw Float32
-//                    binary file of packed [x,y,z, x,y,z, ...] positions, normalized
-//                    to fit roughly a unit box. Good for a "particle cloud" rendering
-//                    of a 2D reference image/silhouette. `animation: "spin"` rotates
-//                    it continuously around Y; `spinSpeed` controls the rate.
+//                    binary file of packed [x,y,z, x,y,z, ...] positions (any scale -
+//                    use `scale` to fit it to the scene). `animation: "spin"` rotates
+//                    it continuously around Y (`spinSpeed`); every particle also
+//                    drifts in its own tiny orbit (`driftAmount`/`driftSpeed`) for a
+//                    shimmering, alive feel. Either `color` (flat) or both
+//                    `colorCore`/`colorOuter` (gradient by distance from center) -
+//                    pair the gradient with `blending: "additive"` for a bright glow
+//                    on a dark backdrop; use flat `color` for a solid look on light.
 
 export const triggers = [
   {
@@ -46,27 +50,34 @@ export const triggers = [
     label: "3D model + animation",
     content: [
       {
-        // Flat white card sitting on the image, behind the fish, so the
-        // particle cloud reads clearly instead of blending into whatever's
-        // behind the camera. Sized to comfortably cover the fish below at
-        // its current scale - widen this if the fish's `scale` grows further.
+        // Deep indigo/black card behind the fish, matching the reference
+        // particle-galaxy's own background - the glow/additive-blended
+        // colors below are tuned to pop against dark, not white.
         type: "backdrop",
-        color: 0xffffff,
+        color: 0x0a0312,
         width: 2.3,
         height: 1.3,
         position: [0, 0, 0],
       },
       {
-        // Particle-cloud rendering of a reference fish illustration,
-        // extracted from its stipple/halftone dots. Swap this for
+        // Procedurally generated volumetric fish (37,500 points, real
+        // depth - fins and eyes project outward, not a flat silhouette),
+        // exported as raw xyz floats from a reference particle-galaxy
+        // tool's custom shape generator. Colors/glow match that tool's
+        // default "Amber Vessel" palette (amber core -> violet outer,
+        // additive blending). Swap this for
         // { type: "model", src: "assets/models/xxx.glb", ... } instead
         // once a real GLB is available - sceneBuilder already supports it.
         type: "points",
-        src: "assets/models/fish-points.bin",
-        color: 0x111111,
-        pointSize: 0.012,
+        src: "assets/models/fish-galaxy-points.bin",
+        colorCore: "#e39b00",
+        colorOuter: "#6432ff",
+        blending: "additive",
+        opacity: 0.55,
+        pointSize: 0.022,
         position: [0, 0, 0.25],
-        scale: 1.8,
+        scale: 0.13,
+        driftAmount: 0.2,
         animation: "spin",
         spinSpeed: 0.5,
       },

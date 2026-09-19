@@ -5,8 +5,8 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=4";
-import { buildAnchorContent } from "./sceneBuilder.js?v=4";
+import { triggers } from "./config.js?v=5";
+import { buildAnchorContent } from "./sceneBuilder.js?v=5";
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");

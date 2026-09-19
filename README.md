@@ -17,7 +17,7 @@ exhibition content — swap in the real trigger images and media before the show
 | Trigger | Content type | Files |
 | --- | --- | --- |
 | `trigger-01` | Video overlay | `assets/videos/01-video-overlay.mp4` |
-| `trigger-02` | 3D model + animation (placeholder: rotating particle-cloud fish) | `assets/models/fish-points.bin` |
+| `trigger-02` | 3D model + animation (placeholder: glowing volumetric particle-cloud fish) | `assets/models/fish-galaxy-points.bin` |
 | `trigger-03` | Transparent animated overlay | `assets/videos/03-alpha-glow-sbs.mp4` |
 | `trigger-04` | Combination: video + 3D model | `assets/videos/04-combo-video.mp4` |
 | `trigger-05` | Combination: transparent overlay + 3D model | reuses `03-alpha-glow-sbs.mp4` |
@@ -98,15 +98,20 @@ There is intentionally no CMS — adding a trigger is a two-step process:
    - `{ type: "primitive", geometry, color, position, scale, animation }` —
      procedural three.js mesh (`box` / `sphere` / `torusKnot` / `icosahedron` /
      `octahedron`), `animation: "spin-bob"` for simple rotate+hover motion.
-   - `{ type: "points", src, color, pointSize, position, scale, animation, spinSpeed, driftAmount, driftSpeed }` —
+   - `{ type: "points", src, color | (colorCore + colorOuter), opacity, blending, pointSize, position, scale, animation, spinSpeed, driftAmount, driftSpeed }` —
      a particle cloud (`THREE.Points`) loaded from a raw binary file of packed
      `[x,y,z, x,y,z, ...]` floats, rendered with soft circular sprites and
-     per-particle size variance instead of flat square dots.
-     `animation: "spin"` rotates the whole cloud continuously (`spinSpeed`);
-     independently, every particle also drifts in a small individual orbit
-     (`driftAmount` = orbit radius, `driftSpeed` = how fast) so the cloud
-     shimmers in place rather than looking rigid. See "Particle-cloud
-     content" below for how to make one.
+     per-particle size variance instead of flat square dots. Either a flat
+     `color`, or `colorCore`/`colorOuter` for a gradient by distance from the
+     cloud's center — pair the gradient with `blending: "additive"` for a
+     bright glow (tune `opacity` down, e.g. 0.5, to avoid dense clouds
+     clipping to solid white from overdraw), or leave both unset for a flat
+     opaque color that works on a light backdrop instead (additive washes out
+     against white). `animation: "spin"` rotates the whole cloud continuously
+     (`spinSpeed`); independently, every particle also drifts in a small
+     individual orbit (`driftAmount` = orbit radius, `driftSpeed` = how fast)
+     so the cloud shimmers in place rather than looking rigid. See
+     "Particle-cloud content" below for how to make one.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
@@ -138,20 +143,30 @@ it for real content.
 
 ### Particle-cloud content
 
-`content` type `"points"` renders a static point cloud — e.g. `trigger-02`'s
-placeholder is a fish illustration reduced to ~6,000 of its own stipple/ink
-dots, extruded into a rough volume (denser "body" regions bulge more than
-thin "fin" edges, estimated from local point density) so it holds together
-reasonably when rotated, not just from directly in front.
+`content` type `"points"` renders a static point cloud. `trigger-02`'s
+placeholder is currently `assets/models/fish-galaxy-points.bin` — 37,500
+points forming a genuinely volumetric fish (fins and eye project outward in
+3D, not just a flat cutout), exported as raw xyz floats from a reference
+particle-galaxy tool's procedural shape generator, rendered with that same
+tool's default "Amber Vessel" glow palette (amber core → violet outer,
+additive blending) on a matching dark backdrop.
 
-To make your own from an image: open `tools/points-from-image.html` locally,
-drop in a high-contrast image (line art, stipple/halftone illustration, or a
-clean silhouette work best — it samples dark pixels directly as points),
-tune the threshold/point-count/depth sliders against the live preview, and
-download the resulting `points.bin`. Put it in `assets/models/` and reference
-it from a `"points"` content entry in `config.js`. This is a flat-image-based
-approximation, not a real 3D scan — for a true volumetric object, use a real
-GLB via `type: "model"` instead.
+There's a second, home-grown way to make one, better suited to a real
+reference image rather than a procedurally generated shape:
+`assets/models/fish-points.bin` (currently unused by any trigger, kept as a
+reference/fallback) is a fish illustration reduced to ~6,000 of its own
+stipple/ink dots, extruded into a rough volume (denser "body" regions bulge
+more than thin "fin" edges, estimated from local point density) so it holds
+together reasonably when rotated. To make one of these yourself: open
+`tools/points-from-image.html` locally, drop in a high-contrast image (line
+art, stipple/halftone illustration, or a clean silhouette work best — it
+samples dark pixels directly as points), tune the threshold/point-count/depth
+sliders against the live preview, and download the resulting `points.bin`.
+This approach is a flat-image-based approximation, not a real 3D scan — for
+genuine volume from a 2D reference, or for a fully custom procedural shape
+like the fish above, a tool that generates real 3D coordinates (e.g. the
+reference particle-galaxy site) or a real GLB via `type: "model"` will look
+better.
 
 The rendering itself (soft round sprites, per-particle size variance, the
 individual per-particle drift/shimmer) is adapted from a reference

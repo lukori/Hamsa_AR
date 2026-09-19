@@ -114,45 +114,86 @@ function buildPrimitiveItem(item) {
 
 // Per-particle "shift" data (phase/phase/frequency/amplitude) drives a tiny
 // circular drift for every point, so the cloud shimmers in place instead of
-// looking like a rigid object when it spins - technique adapted from a
-// reference particle-galaxy demo (onBeforeCompile injection into
-// PointsMaterial's built-in shader), re-tuned here for a small, dark,
-// on-white cloud instead of a large glowing additive-blended one.
-function buildPointsMaterial(item) {
+// looking like a rigid object when it spins, and an optional core/outer
+// color gradient by distance from center - technique and default palette
+// (amber core -> violet outer) adapted from a reference particle-galaxy demo
+// (onBeforeCompile injection into PointsMaterial's built-in shader).
+// `blending: "additive"` matches that reference's glow look (bright colors
+// on a dark backdrop); leave it unset for a flat, opaque color on a light
+// backdrop instead, since additive washes out against white.
+function buildPointsMaterial(item, gradientRadius) {
   const gu = { time: { value: 0 } };
-  const material = new THREE.PointsMaterial({
-    color: item.color ?? 0x000000,
+  const useGradient = !!(item.colorCore && item.colorOuter);
+  const additive = item.blending === "additive";
+
+  const materialOptions = {
     size: item.pointSize ?? 0.01,
     sizeAttenuation: true,
     transparent: true,
-    depthWrite: false,
-  });
+    opacity: item.opacity ?? 1,
+    depthWrite: item.depthWrite ?? false,
+    depthTest: item.depthTest ?? !additive,
+  };
+  if (additive) materialOptions.blending = THREE.AdditiveBlending;
+  if (!useGradient) materialOptions.color = item.color ?? 0x000000;
+  const material = new THREE.PointsMaterial(materialOptions);
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.time = gu.time;
-    shader.vertexShader = `
+
+    let vertexShader = `
       uniform float time;
       attribute float sizes;
       attribute vec4 shift;
       ${shader.vertexShader}
-    `.replace("gl_PointSize = size;", "gl_PointSize = size * sizes;").replace(
-      "#include <begin_vertex>",
-      `#include <begin_vertex>
-        float moveT = mod(shift.x + shift.z * time, PI2);
-        float moveS = mod(shift.y + shift.z * time, PI2);
-        transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
-      `
-    );
+    `;
+    if (useGradient) {
+      shader.uniforms.colorCore = { value: new THREE.Color(item.colorCore) };
+      shader.uniforms.colorOuter = { value: new THREE.Color(item.colorOuter) };
+      shader.uniforms.gradientRadius = { value: gradientRadius };
+      vertexShader = `
+        uniform vec3 colorCore;
+        uniform vec3 colorOuter;
+        uniform float gradientRadius;
+        varying vec3 vGradColor;
+        ${vertexShader}
+      `.replace(
+        "#include <color_vertex>",
+        `#include <color_vertex>
+          float d = clamp(length(position) / gradientRadius, 0.0, 1.0);
+          vGradColor = mix(colorCore, colorOuter, d);
+        `
+      );
+    }
+    shader.vertexShader = vertexShader
+      .replace("gl_PointSize = size;", "gl_PointSize = size * sizes;")
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+          float moveT = mod(shift.x + shift.z * time, PI2);
+          float moveS = mod(shift.y + shift.z * time, PI2);
+          transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
+        `
+      );
 
     // Soft circular sprite instead of a hard square dot, via alpha falloff
     // from the point's center - no sprite texture needed.
-    shader.fragmentShader = shader.fragmentShader.replace(
+    let fragmentShader = useGradient
+      ? `varying vec3 vGradColor;\n${shader.fragmentShader}`
+      : shader.fragmentShader;
+    fragmentShader = fragmentShader.replace(
       "vec4 diffuseColor = vec4( diffuse, opacity );",
-      `
-        float d = length(gl_PointCoord.xy - 0.5);
-        vec4 diffuseColor = vec4( diffuse, opacity * smoothstep(0.5, 0.15, d) );
-      `
+      useGradient
+        ? `
+            float d = length(gl_PointCoord.xy - 0.5);
+            vec4 diffuseColor = vec4( vGradColor, opacity * smoothstep(0.5, 0.15, d) );
+          `
+        : `
+            float d = length(gl_PointCoord.xy - 0.5);
+            vec4 diffuseColor = vec4( diffuse, opacity * smoothstep(0.5, 0.15, d) );
+          `
     );
+    shader.fragmentShader = fragmentShader;
   };
 
   return { material, gu };
@@ -178,8 +219,10 @@ async function buildPointsItem(item) {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("sizes", new THREE.BufferAttribute(sizes, 1));
   geometry.setAttribute("shift", new THREE.BufferAttribute(shift, 4));
+  geometry.computeBoundingSphere();
 
-  const { material, gu } = buildPointsMaterial(item);
+  const gradientRadius = item.gradientRadius ?? geometry.boundingSphere.radius;
+  const { material, gu } = buildPointsMaterial(item, gradientRadius);
   const points = new THREE.Points(geometry, material);
   const scale = item.scale ?? 1;
   points.scale.setScalar(scale);
