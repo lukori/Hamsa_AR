@@ -48,9 +48,17 @@ export const triggers = [
     label: "Video overlay",
     content: [
       {
+        // Real content: a rendered fish animation over the yellow/magenta
+        // poster art (assets/targets-source/yellow_poster_trigger.jpg is
+        // the matching trigger image, compiled into targets.mind at index
+        // 0). Source was 1446x2012 @ 35 Mbps / 43.7MB with an unused audio
+        // track (always muted for AR autoplay anyway) - re-encoded to
+        // ~6.7 Mbps / 8.4MB, no audio, same resolution; no visible quality
+        // difference on inspection. Width/height below match its portrait
+        // aspect ratio (matches the trigger image's own aspect too).
         type: "video",
-        src: "assets/videos/01-video-overlay.mp4",
-        width: 1,
+        src: "assets/videos/fishy-trigger01.mp4",
+        width: 0.719,
         height: 1,
         loop: true,
       },
@@ -127,7 +135,9 @@ export const triggers = [
     content: [
       {
         // Real GLB model - a fish, matching the reference trigger image
-        // above it was generated from. Original export was 1.9M triangles /
+        // this fish illustration was originally generated from
+        // (assets/targets-source/redblue_poster_trigger.jpg, compiled into
+        // targets.mind at index 4). Original export was 1.9M triangles /
         // 55MB (a raw AI image-to-3D output); decimated with gltf-transform
         // (meshoptimizer simplify + meshopt compression + 1024px texture)
         // to ~168k triangles / 1.25MB, which held up visually very well -

@@ -14,17 +14,22 @@ synthetic test videos, and simple animated 3D primitives). Nothing here is final
 exhibition content — swap in the real trigger images and media before the show
 (see "Replacing placeholders with real content" below).
 
-| Trigger | Content type | Files |
-| --- | --- | --- |
-| `trigger-01` | Video overlay | `assets/videos/01-video-overlay.mp4` |
-| `trigger-02` | 3D model + animation (placeholder: spinning primitive) | — |
-| `trigger-03` | Transparent animated overlay | `assets/videos/03-alpha-glow-sbs.mp4` |
-| `trigger-04` | Combination: video + 3D model | `assets/videos/04-combo-video.mp4` |
-| `trigger-05` | Real GLB model, multiply-blended against the camera feed | `assets/models/fisher-fish.glb` |
+| Trigger | Trigger image | Content type | Files |
+| --- | --- | --- | --- |
+| `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
+| `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
+| `trigger-03` | `trigger-03.png` (placeholder) | Transparent animated overlay (placeholder) | `assets/videos/03-alpha-glow-sbs.mp4` |
+| `trigger-04` | `trigger-04.png` (placeholder) | Combination: video + 3D model (placeholder) | `assets/videos/04-combo-video.mp4` |
+| `trigger-05` | `redblue_poster_trigger.jpg` (real) | Real GLB model | `assets/models/fisher-fish.glb` |
 
-`trigger-05`'s trigger image has also been swapped for a real reference image
-(no longer a generated placeholder) - see "Preparing real trigger images"
-below for the compile step whenever you swap another one in.
+`trigger-01` and `trigger-05` now use real exhibition images and (for
+`trigger-01`) real video content, no longer generated placeholders — see
+"Preparing real trigger images" below for the compile step whenever you swap
+another one in. Note the video on `trigger-01` came in at 35 Mbps / 43.7MB
+with an audio track that's never used (all video content here is always
+muted, for autoplay); re-encoded to ~6.7 Mbps / 8.4MB with audio stripped, no
+visible quality difference on inspection — worth doing for any new video
+handed off for a trigger, not just this one.
 
 The particle-cloud/glow experiments that used to live on `trigger-02` (a
 procedurally generated volumetric fish with additive amber/violet glow) are
