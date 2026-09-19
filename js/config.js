@@ -16,7 +16,12 @@
 //                    alpha mask (same technique used for Lottie/Rive-style AR overlays).
 //                    This avoids relying on native alpha-channel WebM decoding, which
 //                    is not reliably supported across iOS Safari and Android Chrome.
-//   "model"        - GLB/GLTF model, optionally with a named skeletal animation clip.
+//   "model"        - GLB/GLTF model. `animation: "spin"` applies a procedural Y-axis
+//                    spin (`spinSpeed`) regardless of what's baked into the file;
+//                    otherwise a named/first skeletal animation clip plays if the file
+//                    has one. `blending: "additive" | "multiply" | "subtract"` recolors
+//                    how it composites against whatever's behind it (e.g. "multiply"
+//                    for a Photoshop-multiply-style look against the camera feed).
 //   "primitive"    - a procedural three.js mesh with code-driven animation (rotate/
 //                    hover/scale). Used here as a placeholder stand-in for "model"
 //                    until real GLB assets are ready, and reusable for any trigger
@@ -54,40 +59,17 @@ export const triggers = [
     label: "3D model + animation",
     content: [
       {
-        // Soft radial glow instead of a hard-edged card - a visible
-        // rectangle behind a rotating object reads as "video playing in a
-        // frame" even when the object itself has real depth, so this fades
-        // to fully transparent at the edges instead of having a boundary.
-        // Matches the reference particle-galaxy's near-black background.
-        type: "backdrop",
-        color: 0x0a0312,
-        radial: true,
-        width: 7,
-        height: 4.5,
-        position: [0, 0, 0],
-      },
-      {
-        // Procedurally generated volumetric fish (37,500 points, real
-        // depth - fins and eyes project outward, not a flat silhouette),
-        // exported as raw xyz floats from a reference particle-galaxy
-        // tool's custom shape generator. Colors/glow match that tool's
-        // default "Amber Vessel" palette (amber core -> violet outer,
-        // additive blending). Scaled up well beyond the trigger image's own
-        // size for a dominant, obviously-3D presence. Swap this for
-        // { type: "model", src: "assets/models/xxx.glb", ... } instead
-        // once a real GLB is available - sceneBuilder already supports it.
-        type: "points",
-        src: "assets/models/fish-galaxy-points.bin",
-        colorCore: "#e39b00",
-        colorOuter: "#6432ff",
-        blending: "additive",
-        opacity: 0.9,
-        pointSize: 0.03,
-        position: [0, 0, 0.4],
-        scale: 0.35,
-        driftAmount: 0.2,
-        animation: "spin",
-        spinSpeed: 0.5,
+        // Swap this for { type: "model", src: "assets/models/xxx.glb", ... }
+        // once a real GLB is available. sceneBuilder already supports it.
+        // (The particle-cloud experiments that used to live here are kept
+        // in git history - see the checkpoint-galaxy-fish-glow tag - in
+        // case that direction gets picked back up later.)
+        type: "primitive",
+        geometry: "torusKnot",
+        color: 0x4d96ff,
+        position: [0, 0, 0.22],
+        scale: 0.18,
+        animation: "spin-bob",
       },
     ],
     onFound: "play",
@@ -136,22 +118,25 @@ export const triggers = [
   {
     id: "trigger-05",
     targetIndex: 4,
-    label: "Combination: transparent overlay + 3D model",
+    label: "3D model (GLB)",
     content: [
       {
-        type: "alpha-video",
-        src: "assets/videos/03-alpha-glow-sbs.mp4",
-        width: 1,
-        height: 1,
-        loop: true,
-      },
-      {
-        type: "primitive",
-        geometry: "octahedron",
-        color: 0x6bcb77,
-        position: [0, 0, 0.28],
-        scale: 0.15,
-        animation: "spin-bob",
+        // Real GLB model - a fish, matching the reference trigger image
+        // above it was generated from. Original export was 1.9M triangles /
+        // 55MB (a raw AI image-to-3D output); decimated with gltf-transform
+        // (meshoptimizer simplify + meshopt compression + 1024px texture)
+        // to ~168k triangles / 1.25MB, which held up visually very well -
+        // see the README for the exact command. `blending: "multiply"`
+        // composites it against the camera feed Photoshop-multiply-style
+        // (darker areas of the model let real-world brightness/color
+        // through) instead of drawing fully opaque.
+        type: "model",
+        src: "assets/models/fisher-fish.glb",
+        blending: "multiply",
+        position: [0, 0, 0.3],
+        scale: 0.7,
+        animation: "spin",
+        spinSpeed: 0.4,
       },
     ],
     onFound: "play",

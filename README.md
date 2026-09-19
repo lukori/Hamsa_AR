@@ -17,10 +17,21 @@ exhibition content — swap in the real trigger images and media before the show
 | Trigger | Content type | Files |
 | --- | --- | --- |
 | `trigger-01` | Video overlay | `assets/videos/01-video-overlay.mp4` |
-| `trigger-02` | 3D model + animation (placeholder: glowing volumetric particle-cloud fish) | `assets/models/fish-galaxy-points.bin` |
+| `trigger-02` | 3D model + animation (placeholder: spinning primitive) | — |
 | `trigger-03` | Transparent animated overlay | `assets/videos/03-alpha-glow-sbs.mp4` |
 | `trigger-04` | Combination: video + 3D model | `assets/videos/04-combo-video.mp4` |
-| `trigger-05` | Combination: transparent overlay + 3D model | reuses `03-alpha-glow-sbs.mp4` |
+| `trigger-05` | Real GLB model, multiply-blended against the camera feed | `assets/models/fisher-fish.glb` |
+
+`trigger-05`'s trigger image has also been swapped for a real reference image
+(no longer a generated placeholder) - see "Preparing real trigger images"
+below for the compile step whenever you swap another one in.
+
+The particle-cloud/glow experiments that used to live on `trigger-02` (a
+procedurally generated volumetric fish with additive amber/violet glow) are
+still fully supported by `sceneBuilder.js` (`"points"` content type) if that
+direction comes back later - see git tag `checkpoint-galaxy-fish-glow` for
+the exact working config, and `assets/models/fish-galaxy-points.bin` /
+`assets/models/fish-points.bin` are kept on disk either way.
 
 ## Running it locally
 
@@ -98,9 +109,18 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      The source MUST be a single video where the **left half is RGB color and
      the right half is a grayscale alpha mask**, side by side in one frame
      (see "Transparent overlays" below for why, and how to produce one).
-   - `{ type: "model", src, position, scale, rotation, animation }` — GLB/GLTF
-     model via `GLTFLoader`; `animation` optionally names a specific clip,
-     otherwise the first clip in the file plays.
+   - `{ type: "model", src, position, scale, rotation, animation, spinSpeed, blending, depthWrite }` —
+     GLB/GLTF model via `GLTFLoader` (meshopt-compressed files supported -
+     `MeshoptDecoder` is already wired up). `animation: "spin"` applies a
+     procedural Y-axis spin regardless of what's baked into the file
+     (`spinSpeed`); otherwise, if the file has its own animation clips,
+     `animation` optionally names a specific one, else the first clip plays.
+     `blending: "additive" | "multiply" | "subtract"` changes how it
+     composites against whatever's behind it — e.g. `"multiply"` for a
+     Photoshop-multiply-style look against the real camera feed (darker
+     parts of the model let real-world brightness/color show through,
+     lighter parts don't) instead of drawing fully opaque. See "Using a real
+     GLB model" below for the export/compression workflow.
    - `{ type: "primitive", geometry, color, position, scale, animation }` —
      procedural three.js mesh (`box` / `sphere` / `torusKnot` / `icosahedron` /
      `octahedron`), `animation: "spin-bob"` for simple rotate+hover motion.
@@ -197,12 +217,34 @@ From the brief — worth re-reading before printing anything:
   movement. Test on both iPhone and Android — camera and motion-sensor
   permission flows differ between them.
 
-## 3D models
+## Using a real GLB model
 
 - Keep polygon count and texture resolution low — the device is simultaneously
   running real-time image tracking, and a heavy model costs both frame rate
   and tracking accuracy.
-- Compress with Draco or Meshopt where possible.
+- **AI-generated / photogrammetry GLBs are almost never AR-ready as exported.**
+  `trigger-05`'s model (`assets/models/fisher-fish.glb`) came in as a raw
+  image-to-3D export at **1.9M triangles and 55MB** (single mesh, single
+  2048px texture, no rigging) — completely unworkable alongside live image
+  tracking on a phone. It was decimated with
+  [`@gltf-transform/cli`](https://gltf-transform.dev/) (installable with no
+  native build step via `npx`, unlike some mesh tools):
+
+  ```bash
+  npx @gltf-transform/cli optimize input.glb output.glb \
+    --simplify-ratio 0.03 --texture-size 1024 --compress meshopt
+  ```
+
+  That took it to **~168k triangles and 1.25MB** — a 44x smaller file — with
+  the fin rays, scale texture, and eye all still clearly legible (worth a
+  visual check after simplifying; `--simplify-ratio` trades detail for size,
+  and how far you can push it depends on the model). `--compress meshopt`
+  requires the consuming `GLTFLoader` to have a `MeshoptDecoder` registered,
+  which `sceneBuilder.js` already does — if you use Draco compression instead,
+  you'd need to wire up a `DRACOLoader` there too.
+- Check the result with `npx @gltf-transform/cli inspect your-model.glb` —
+  it prints triangle count, texture sizes, and material/animation info
+  without needing to open it in a 3D app.
 
 ## Updating the deployed site (cache-busting)
 

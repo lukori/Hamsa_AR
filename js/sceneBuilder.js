@@ -1,7 +1,16 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
 const gltfLoader = new GLTFLoader();
+gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+
+const BLENDING_MODES = {
+  additive: THREE.AdditiveBlending,
+  multiply: THREE.MultiplyBlending,
+  subtract: THREE.SubtractiveBlending,
+  normal: THREE.NormalBlending,
+};
 
 // Shader that splits a side-by-side packed video (RGB on the left half,
 // grayscale alpha mask on the right half) into a proper transparent texture.
@@ -275,15 +284,36 @@ async function buildModelItem(item) {
   if (item.position) model.position.set(...item.position);
   if (item.rotation) model.rotation.set(...item.rotation);
 
+  if (item.blending && BLENDING_MODES[item.blending]) {
+    model.traverse((obj) => {
+      if (!obj.isMesh) return;
+      const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+      materials.forEach((m) => {
+        m.blending = BLENDING_MODES[item.blending];
+        m.transparent = true;
+        m.depthWrite = item.depthWrite ?? false;
+      });
+    });
+  }
+
   let mixer = null;
-  if (gltf.animations && gltf.animations.length > 0) {
+  let update = null;
+  if (item.animation === "spin") {
+    // Procedural spin, same convention as "primitive"/"points" - used when
+    // the GLB has no baked-in animation of its own (or you just want a
+    // simple turntable regardless of what clips it has).
+    const spinSpeed = item.spinSpeed ?? 0.6;
+    update = (elapsed) => {
+      model.rotation.y = elapsed * spinSpeed;
+    };
+  } else if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(model);
     const clip =
       (item.animation && gltf.animations.find((a) => a.name === item.animation)) ||
       gltf.animations[0];
     if (clip) mixer.clipAction(clip).play();
   }
-  return { mesh: model, mixer };
+  return { mesh: model, mixer, update };
 }
 
 // Builds every content item for one trigger, adds them to the anchor group,
@@ -311,9 +341,10 @@ export async function buildAnchorContent(group, triggerConfig) {
       group.add(mesh);
       if (update) updaters.push(update);
     } else if (item.type === "model") {
-      const { mesh, mixer } = await buildModelItem(item);
+      const { mesh, mixer, update } = await buildModelItem(item);
       group.add(mesh);
       if (mixer) mixers.push(mixer);
+      if (update) updaters.push(update);
     } else if (item.type === "points") {
       const { mesh, update } = await buildPointsItem(item);
       group.add(mesh);
