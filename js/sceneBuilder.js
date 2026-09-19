@@ -68,12 +68,41 @@ function buildAlphaVideoItem(item) {
   return { mesh, video };
 }
 
+// A soft-edged vignette instead of a hard-edged rectangle: fades to fully
+// transparent well before the plane's actual bounds, so it reads as an
+// ambient glow/void behind other content rather than a visible "screen" -
+// a hard rectangle behind a rotating object reads as "video playing in a
+// frame" even when the object itself has real depth.
+const radialBackdropVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const radialBackdropFragmentShader = /* glsl */ `
+  uniform vec3 color;
+  varying vec2 vUv;
+  void main() {
+    float d = length(vUv - 0.5) * 2.0;
+    float alpha = smoothstep(1.0, 0.15, d);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
 function buildBackdropItem(item) {
   const geometry = new THREE.PlaneGeometry(item.width ?? 1, item.height ?? 1);
-  const material = new THREE.MeshBasicMaterial({
-    color: item.color ?? 0xffffff,
-    side: THREE.DoubleSide,
-  });
+  const color = new THREE.Color(item.color ?? 0xffffff);
+  const material = item.radial
+    ? new THREE.ShaderMaterial({
+        uniforms: { color: { value: color } },
+        vertexShader: radialBackdropVertexShader,
+        fragmentShader: radialBackdropFragmentShader,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    : new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
   if (item.position) mesh.position.set(...item.position);
   if (item.rotation) mesh.rotation.set(...item.rotation);

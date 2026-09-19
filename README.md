@@ -87,6 +87,12 @@ There is intentionally no CMS — adding a trigger is a two-step process:
 2. **Edit `js/config.js`.** Add/edit an entry whose `targetIndex` matches the
    image's position in the compile order (0-based), and describe its `content`
    array. `sceneBuilder.js` already supports:
+   - `{ type: "backdrop", color, width, height, position, radial }` — an
+     unlit solid-color plane behind other content, so it doesn't blend into
+     the camera feed. `radial: true` fades it to fully transparent at the
+     edges (a soft glow/void with no visible boundary) instead of a hard
+     rectangle — a visible rectangle behind a rotating 3D object reads as
+     "flat video in a frame" even when the object itself has real depth.
    - `{ type: "video", src, width, height, loop }` — opaque video plane
    - `{ type: "alpha-video", src, width, height, loop }` — transparent overlay.
      The source MUST be a single video where the **left half is RGB color and

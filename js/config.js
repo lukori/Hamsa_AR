@@ -4,8 +4,12 @@
 // with the matching targetIndex (the image's position in the compile order).
 //
 // Content item types supported by sceneBuilder.js:
-//   "backdrop"     - a flat, unlit, solid-color plane (e.g. a white card behind
-//                    other content so it doesn't blend into the camera feed).
+//   "backdrop"     - an unlit, solid-color plane behind other content so it
+//                    doesn't blend into the camera feed. `radial: true` fades
+//                    it to fully transparent at the edges (a soft glow/void,
+//                    no visible boundary) instead of a hard-edged rectangle -
+//                    a visible rectangle behind a rotating 3D object reads as
+//                    "flat video in a frame" even when the object has real depth.
 //   "video"        - opaque video plane (regular MP4, e.g. filmed/rendered footage)
 //   "alpha-video"  - transparent animated overlay. Source is a single MP4 where the
 //                    LEFT half is the RGB color and the RIGHT half is a grayscale
@@ -50,13 +54,16 @@ export const triggers = [
     label: "3D model + animation",
     content: [
       {
-        // Deep indigo/black card behind the fish, matching the reference
-        // particle-galaxy's own background - the glow/additive-blended
-        // colors below are tuned to pop against dark, not white.
+        // Soft radial glow instead of a hard-edged card - a visible
+        // rectangle behind a rotating object reads as "video playing in a
+        // frame" even when the object itself has real depth, so this fades
+        // to fully transparent at the edges instead of having a boundary.
+        // Matches the reference particle-galaxy's near-black background.
         type: "backdrop",
         color: 0x0a0312,
-        width: 2.3,
-        height: 1.3,
+        radial: true,
+        width: 7,
+        height: 4.5,
         position: [0, 0, 0],
       },
       {
@@ -65,7 +72,8 @@ export const triggers = [
         // exported as raw xyz floats from a reference particle-galaxy
         // tool's custom shape generator. Colors/glow match that tool's
         // default "Amber Vessel" palette (amber core -> violet outer,
-        // additive blending). Swap this for
+        // additive blending). Scaled up well beyond the trigger image's own
+        // size for a dominant, obviously-3D presence. Swap this for
         // { type: "model", src: "assets/models/xxx.glb", ... } instead
         // once a real GLB is available - sceneBuilder already supports it.
         type: "points",
@@ -73,10 +81,10 @@ export const triggers = [
         colorCore: "#e39b00",
         colorOuter: "#6432ff",
         blending: "additive",
-        opacity: 0.55,
-        pointSize: 0.022,
-        position: [0, 0, 0.25],
-        scale: 0.13,
+        opacity: 0.9,
+        pointSize: 0.03,
+        position: [0, 0, 0.4],
+        scale: 0.35,
         driftAmount: 0.2,
         animation: "spin",
         spinSpeed: 0.5,
