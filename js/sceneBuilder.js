@@ -112,29 +112,86 @@ function buildPrimitiveItem(item) {
   return { mesh, update };
 }
 
-async function buildPointsItem(item) {
-  const buffer = await fetch(item.src).then((r) => r.arrayBuffer());
-  const positions = new Float32Array(buffer);
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+// Per-particle "shift" data (phase/phase/frequency/amplitude) drives a tiny
+// circular drift for every point, so the cloud shimmers in place instead of
+// looking like a rigid object when it spins - technique adapted from a
+// reference particle-galaxy demo (onBeforeCompile injection into
+// PointsMaterial's built-in shader), re-tuned here for a small, dark,
+// on-white cloud instead of a large glowing additive-blended one.
+function buildPointsMaterial(item) {
+  const gu = { time: { value: 0 } };
   const material = new THREE.PointsMaterial({
     color: item.color ?? 0x000000,
     size: item.pointSize ?? 0.01,
     sizeAttenuation: true,
+    transparent: true,
+    depthWrite: false,
   });
+
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.time = gu.time;
+    shader.vertexShader = `
+      uniform float time;
+      attribute float sizes;
+      attribute vec4 shift;
+      ${shader.vertexShader}
+    `.replace("gl_PointSize = size;", "gl_PointSize = size * sizes;").replace(
+      "#include <begin_vertex>",
+      `#include <begin_vertex>
+        float moveT = mod(shift.x + shift.z * time, PI2);
+        float moveS = mod(shift.y + shift.z * time, PI2);
+        transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
+      `
+    );
+
+    // Soft circular sprite instead of a hard square dot, via alpha falloff
+    // from the point's center - no sprite texture needed.
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "vec4 diffuseColor = vec4( diffuse, opacity );",
+      `
+        float d = length(gl_PointCoord.xy - 0.5);
+        vec4 diffuseColor = vec4( diffuse, opacity * smoothstep(0.5, 0.15, d) );
+      `
+    );
+  };
+
+  return { material, gu };
+}
+
+async function buildPointsItem(item) {
+  const buffer = await fetch(item.src).then((r) => r.arrayBuffer());
+  const positions = new Float32Array(buffer);
+  const count = positions.length / 3;
+
+  const sizes = new Float32Array(count);
+  const shift = new Float32Array(count * 4);
+  const driftAmount = item.driftAmount ?? 0.015;
+  for (let i = 0; i < count; i++) {
+    sizes[i] = Math.random() * 0.6 + 0.6; // 0.6 - 1.2x per-point size variance
+    shift[i * 4 + 0] = Math.random() * Math.PI; // phase T
+    shift[i * 4 + 1] = Math.random() * Math.PI * 2; // phase S
+    shift[i * 4 + 2] = (Math.random() * 0.9 + 0.1) * 0.3; // drift frequency
+    shift[i * 4 + 3] = (Math.random() * 0.7 + 0.3) * driftAmount; // drift amplitude
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("sizes", new THREE.BufferAttribute(sizes, 1));
+  geometry.setAttribute("shift", new THREE.BufferAttribute(shift, 4));
+
+  const { material, gu } = buildPointsMaterial(item);
   const points = new THREE.Points(geometry, material);
   const scale = item.scale ?? 1;
   points.scale.setScalar(scale);
   if (item.position) points.position.set(...item.position);
   if (item.rotation) points.rotation.set(...item.rotation);
 
-  const update =
-    item.animation === "spin"
-      ? (elapsed) => {
-          points.rotation.y = elapsed * (item.spinSpeed ?? 0.6);
-        }
-      : null;
+  const spinSpeed = item.animation === "spin" ? item.spinSpeed ?? 0.6 : 0;
+  const driftSpeed = item.driftSpeed ?? 0.2;
+  const update = (elapsed) => {
+    gu.time.value = elapsed * Math.PI * driftSpeed;
+    if (spinSpeed) points.rotation.y = elapsed * spinSpeed;
+  };
   return { mesh: points, update };
 }
 

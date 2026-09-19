@@ -98,10 +98,15 @@ There is intentionally no CMS — adding a trigger is a two-step process:
    - `{ type: "primitive", geometry, color, position, scale, animation }` —
      procedural three.js mesh (`box` / `sphere` / `torusKnot` / `icosahedron` /
      `octahedron`), `animation: "spin-bob"` for simple rotate+hover motion.
-   - `{ type: "points", src, color, pointSize, position, scale, animation, spinSpeed }` —
-     a static particle cloud (`THREE.Points`) loaded from a raw binary file of
-     packed `[x,y,z, x,y,z, ...]` floats. `animation: "spin"` rotates it
-     continuously. See "Particle-cloud content" below for how to make one.
+   - `{ type: "points", src, color, pointSize, position, scale, animation, spinSpeed, driftAmount, driftSpeed }` —
+     a particle cloud (`THREE.Points`) loaded from a raw binary file of packed
+     `[x,y,z, x,y,z, ...]` floats, rendered with soft circular sprites and
+     per-particle size variance instead of flat square dots.
+     `animation: "spin"` rotates the whole cloud continuously (`spinSpeed`);
+     independently, every particle also drifts in a small individual orbit
+     (`driftAmount` = orbit radius, `driftSpeed` = how fast) so the cloud
+     shimmers in place rather than looking rigid. See "Particle-cloud
+     content" below for how to make one.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
@@ -147,6 +152,13 @@ download the resulting `points.bin`. Put it in `assets/models/` and reference
 it from a `"points"` content entry in `config.js`. This is a flat-image-based
 approximation, not a real 3D scan — for a true volumetric object, use a real
 GLB via `type: "model"` instead.
+
+The rendering itself (soft round sprites, per-particle size variance, the
+individual per-particle drift/shimmer) is adapted from a reference
+particle-galaxy shader technique (`PointsMaterial.onBeforeCompile`, injecting
+a `sizes` and `shift` attribute and a `time` uniform) — re-tuned for a small,
+dark, on-white cloud rather than a large glowing additive-blended one, since
+additive blending washes out dark colors against a light background.
 
 ## Preparing real trigger images
 
