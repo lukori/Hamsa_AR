@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>AR Exhibition Experience</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #ar-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 24px;
+      box-sizing: border-box;
+      text-align: center;
+      background: radial-gradient(circle at 50% 40%, #1a1a2e 0%, #05050a 100%);
+      color: #f5f5f7;
+    }
+    .overlay.hidden {
+      display: none;
+    }
+    .overlay h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+    .overlay p {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #b8b8c2;
+      max-width: 340px;
+      margin: 0;
+    }
+    button {
+      font-size: 17px;
+      font-weight: 600;
+      padding: 14px 36px;
+      border-radius: 999px;
+      border: none;
+      background: #ffffff;
+      color: #000;
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .hint {
+      font-size: 12px;
+      color: #7a7a86;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ar-container"></div>
+
+  <div id="start-screen" class="overlay">
+    <h1>AR Exhibition Experience</h1>
+    <p>Point your camera at one of the exhibition images to bring it to life. Works best in good, even lighting.</p>
+    <button id="start-button">Start Experience</button>
+    <p class="hint">You'll be asked to allow camera access.</p>
+  </div>
+
+  <div id="error-screen" class="overlay hidden">
+    <h1>Something went wrong</h1>
+    <p id="error-message">Couldn't start the camera.</p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

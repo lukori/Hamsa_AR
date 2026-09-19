@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Target Compiler — AR Exhibition</title>
+<script type="importmap">
+{
+  "imports": {
+    "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
+  }
+}
+</script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #222;
+  }
+  h1 { font-size: 20px; }
+  p.hint { color: #666; font-size: 14px; line-height: 1.5; }
+  #dropzone {
+    border: 2px dashed #999;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    margin: 16px 0;
+  }
+  #dropzone.dragover { border-color: #333; background: #f5f5f5; }
+  #fileList { list-style: none; padding: 0; margin: 12px 0; }
+  #fileList li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 6px;
+    font-size: 14px;
+  }
+  #fileList li .idx { font-weight: 600; color: #888; margin-right: 10px; }
+  button {
+    font-size: 15px; font-weight: 600; padding: 10px 22px; border-radius: 8px;
+    border: none; background: #111; color: #fff; cursor: pointer; margin-top: 10px;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  #progress { font-size: 13px; color: #555; margin-top: 10px; white-space: pre-line; }
+  #downloadLink {
+    display: none; margin-top: 16px; padding: 12px 20px; background: #16a34a;
+    color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;
+  }
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+  <h1>Trigger Image Compiler</h1>
+  <p class="hint">
+    Drop your final trigger images here, in the exact order they should appear in
+    <code>js/config.js</code> (image 1 → <code>targetIndex: 0</code>, image 2 →
+    <code>targetIndex: 1</code>, etc). Each image should be rich in detail and
+    contrast, non-symmetric, and not on a glossy/reflective surface. Runs entirely
+    in this browser tab — nothing is uploaded anywhere.
+  </p>
+
+  <div id="dropzone">Click to choose images, or drag and drop them here (1–5 images)</div>
+  <input type="file" id="fileInput" accept="image/*" multiple />
+
+  <ol id="fileList"></ol>
+
+  <button id="compileBtn" disabled>Compile</button>
+  <div id="progress"></div>
+  <a id="downloadLink" download="targets.mind">Download targets.mind</a>
+
+  <script type="module">
+    import { Compiler } from "mindar-image";
+
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const fileListEl = document.getElementById("fileList");
+    const compileBtn = document.getElementById("compileBtn");
+    const progressEl = document.getElementById("progress");
+    const downloadLink = document.getElementById("downloadLink");
+
+    let files = [];
+
+    function renderList() {
+      fileListEl.innerHTML = "";
+      files.forEach((f, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span><span class="idx">targetIndex ${i}</span>${f.name}</span>`;
+        fileListEl.appendChild(li);
+      });
+      compileBtn.disabled = files.length === 0;
+    }
+
+    function addFiles(fileListLike) {
+      const picked = Array.from(fileListLike).filter((f) => f.type.startsWith("image/"));
+      files = files.concat(picked).slice(0, 5);
+      renderList();
+    }
+
+    dropzone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => addFiles(e.target.files));
+
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      addFiles(e.dataTransfer.files);
+    });
+
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    compileBtn.addEventListener("click", async () => {
+      compileBtn.disabled = true;
+      downloadLink.style.display = "none";
+      progressEl.textContent = "Loading images…";
+
+      const images = [];
+      for (const f of files) images.push(await loadImage(f));
+
+      const compiler = new Compiler();
+      await compiler.compileImageTargets(images, (progress) => {
+        progressEl.textContent = `Compiling… ${progress.toFixed(1)}%`;
+      });
+
+      progressEl.textContent = "Exporting…";
+      const buffer = await compiler.exportData();
+      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      downloadLink.href = URL.createObjectURL(blob);
+      downloadLink.style.display = "inline-block";
+      progressEl.textContent = `Done. ${files.length} target(s) compiled — download and replace assets/targets.mind.`;
+      compileBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>

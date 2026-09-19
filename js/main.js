@@ -1,0 +1,98 @@
+import { MindARThree } from "mindar-image-three";
+import * as THREE from "three";
+import { triggers } from "./config.js";
+import { buildAnchorContent } from "./sceneBuilder.js";
+
+const startScreen = document.getElementById("start-screen");
+const startButton = document.getElementById("start-button");
+const errorScreen = document.getElementById("error-screen");
+const errorMessage = document.getElementById("error-message");
+const container = document.getElementById("ar-container");
+
+const clock = new THREE.Clock();
+let started = false;
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorScreen.classList.remove("hidden");
+  startScreen.classList.add("hidden");
+}
+
+async function startExperience() {
+  if (started) return;
+  started = true;
+  startButton.disabled = true;
+  startButton.textContent = "Starting…";
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showError(
+      "Camera access isn't available in this browser. Open this page in Safari (iOS) or Chrome (Android)."
+    );
+    started = false;
+    startButton.disabled = false;
+    startButton.textContent = "Start Experience";
+    return;
+  }
+
+  try {
+    const mindarThree = new MindARThree({
+      container,
+      imageTargetSrc: "assets/targets.mind",
+      maxTrack: triggers.length,
+      uiLoading: "no",
+      uiScanning: "no",
+      uiError: "no",
+    });
+    const { renderer, scene, camera } = mindarThree;
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444466, 1.2));
+    scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
+
+    const allVideos = [];
+    const allUpdaters = [];
+    const allMixers = [];
+
+    for (const triggerConfig of triggers) {
+      const anchor = mindarThree.addAnchor(triggerConfig.targetIndex);
+      const { videos, updaters, mixers } = await buildAnchorContent(anchor.group, triggerConfig);
+
+      allVideos.push(...videos);
+      allUpdaters.push(...updaters);
+      allMixers.push(...mixers);
+
+      anchor.onTargetFound = () => {
+        if (triggerConfig.onFound === "play") {
+          videos.forEach((v) => v.play().catch(() => {}));
+        }
+      };
+      anchor.onTargetLost = () => {
+        if (triggerConfig.onLost === "pause") {
+          videos.forEach((v) => v.pause());
+        }
+      };
+    }
+
+    startScreen.classList.add("hidden");
+    await mindarThree.start();
+
+    clock.start();
+    renderer.setAnimationLoop(() => {
+      const elapsed = clock.getElapsedTime();
+      const delta = clock.getDelta();
+      allUpdaters.forEach((update) => update(elapsed));
+      allMixers.forEach((mixer) => mixer.update(delta));
+      renderer.render(scene, camera);
+    });
+  } catch (err) {
+    console.error("Failed to start AR experience", err);
+    showError(
+      "Couldn't start the camera. Make sure you allowed camera access, then reload the page and try again."
+    );
+    started = false;
+    startButton.disabled = false;
+    startButton.textContent = "Start Experience";
+  }
+}
+
+startButton.addEventListener("click", startExperience);
