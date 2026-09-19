@@ -171,6 +171,20 @@ From the brief — worth re-reading before printing anything:
   and tracking accuracy.
 - Compress with Draco or Meshopt where possible.
 
+## Updating the deployed site (cache-busting)
+
+GitHub Pages caches static files for 10 minutes, and phone browsers often
+hold onto JS modules even longer — so after pushing a change to `config.js`
+or `sceneBuilder.js`, a device that already opened the app once can keep
+running the **old** logic even though the server has the new file (this bit
+us once: a content change looked "not applied" on a phone that had visited
+minutes earlier, right after the plain HTML/CSS visibly changed). `index.html`
+and `main.js` reference those two files with a `?v=N` query string precisely
+to force a fresh fetch — **bump that number in both places whenever you
+change `config.js` or `sceneBuilder.js`**, or a previously-visited device may
+not see the update. If you ever hit this despite bumping it, a hard
+refresh / clearing site data on the phone also fixes it.
+
 ## Deployment
 
 Fully static, so Vercel, Netlify, or GitHub Pages all work with zero config —

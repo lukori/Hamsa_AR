@@ -1,7 +1,12 @@
 import { MindARThree } from "mindar-image-three";
 import * as THREE from "three";
-import { triggers } from "./config.js";
-import { buildAnchorContent } from "./sceneBuilder.js";
+// The "?v=" query strings below are a manual cache-buster: GitHub Pages
+// caches static files for 10 minutes (and phone browsers often longer), so
+// without a unique URL per version, a device that already loaded the app
+// once can keep running stale JS after a deploy. Bump this number whenever
+// config.js or sceneBuilder.js changes.
+import { triggers } from "./config.js?v=2";
+import { buildAnchorContent } from "./sceneBuilder.js?v=2";
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
