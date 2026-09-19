@@ -116,11 +116,20 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      (`spinSpeed`); otherwise, if the file has its own animation clips,
      `animation` optionally names a specific one, else the first clip plays.
      `blending: "additive" | "multiply" | "subtract"` changes how it
-     composites against whatever's behind it — e.g. `"multiply"` for a
-     Photoshop-multiply-style look against the real camera feed (darker
-     parts of the model let real-world brightness/color show through,
-     lighter parts don't) instead of drawing fully opaque. See "Using a real
-     GLB model" below for the export/compression workflow.
+     composites — **but only against other opaque WebGL content already
+     drawn in the scene** (another mesh, an opaque `"backdrop"`), **not**
+     against the real camera feed. MindAR's renderer is transparent
+     (`alpha: true`, no scene background); the live camera image is a
+     separate `<video>` element positioned behind the canvas via CSS, not
+     part of the WebGL scene at all. `blending: "multiply"` with nothing
+     opaque behind the model in-scene multiplies against fully transparent
+     (0,0,0,0) — i.e. zero — making the model **invisible**. (Confirmed by
+     trying it on `trigger-05`: the model disappeared entirely.) A true
+     "multiply against the live camera" effect is possible but needs a
+     custom shader sampling the camera video as a texture at screen-space
+     UV, replicating MindAR's own crop/letterbox math for the video element
+     — not implemented here. See "Using a real GLB model" below for the
+     export/compression workflow.
    - `{ type: "primitive", geometry, color, position, scale, animation }` —
      procedural three.js mesh (`box` / `sphere` / `torusKnot` / `icosahedron` /
      `octahedron`), `animation: "spin-bob"` for simple rotate+hover motion.

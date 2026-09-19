@@ -20,8 +20,13 @@
 //                    spin (`spinSpeed`) regardless of what's baked into the file;
 //                    otherwise a named/first skeletal animation clip plays if the file
 //                    has one. `blending: "additive" | "multiply" | "subtract"` recolors
-//                    how it composites against whatever's behind it (e.g. "multiply"
-//                    for a Photoshop-multiply-style look against the camera feed).
+//                    how it composites against whatever's ALREADY DRAWN IN THE WEBGL
+//                    SCENE behind it (another mesh/backdrop) - it does NOT reach the
+//                    real camera feed, which is a separate <video> element behind the
+//                    transparent canvas, not part of the WebGL scene. Using "multiply"
+//                    with nothing opaque behind the model in-scene makes it invisible
+//                    (multiplies against transparent = zero). See the README before
+//                    using this.
 //   "primitive"    - a procedural three.js mesh with code-driven animation (rotate/
 //                    hover/scale). Used here as a placeholder stand-in for "model"
 //                    until real GLB assets are ready, and reusable for any trigger
@@ -126,13 +131,17 @@ export const triggers = [
         // 55MB (a raw AI image-to-3D output); decimated with gltf-transform
         // (meshoptimizer simplify + meshopt compression + 1024px texture)
         // to ~168k triangles / 1.25MB, which held up visually very well -
-        // see the README for the exact command. `blending: "multiply"`
-        // composites it against the camera feed Photoshop-multiply-style
-        // (darker areas of the model let real-world brightness/color
-        // through) instead of drawing fully opaque.
+        // see the README for the exact command.
+        //
+        // NOTE: no `blending` set here on purpose. "multiply" was tried and
+        // made the model fully INVISIBLE: MindAR's renderer is transparent
+        // (alpha: true, no scene background) and the real camera feed is a
+        // separate <video> element behind the canvas via CSS, not part of
+        // the WebGL scene - so MultiplyBlending multiplied against nothing
+        // (0,0,0,0), which is zero everywhere. See the README's "blending"
+        // note under "Using a real GLB model" before re-enabling it.
         type: "model",
         src: "assets/models/fisher-fish.glb",
-        blending: "multiply",
         position: [0, 0, 0.3],
         scale: 0.7,
         animation: "spin",
