@@ -15,6 +15,11 @@
 //                    hover/scale). Used here as a placeholder stand-in for "model"
 //                    until real GLB assets are ready, and reusable for any trigger
 //                    that just needs simple procedural motion.
+//   "points"       - a static point cloud (THREE.Points) loaded from a raw Float32
+//                    binary file of packed [x,y,z, x,y,z, ...] positions, normalized
+//                    to fit roughly a unit box. Good for a "particle cloud" rendering
+//                    of a 2D reference image/silhouette. `animation: "spin"` rotates
+//                    it continuously around Y; `spinSpeed` controls the rate.
 
 export const triggers = [
   {
@@ -39,14 +44,18 @@ export const triggers = [
     label: "3D model + animation",
     content: [
       {
-        // Swap this for { type: "model", src: "assets/models/xxx.glb", ... }
-        // once a real GLB is available. sceneBuilder already supports it.
-        type: "primitive",
-        geometry: "torusKnot",
-        color: 0x4d96ff,
-        position: [0, 0, 0.22],
-        scale: 0.18,
-        animation: "spin-bob",
+        // Particle-cloud rendering of a reference fish illustration,
+        // extracted from its stipple/halftone dots. Swap this for
+        // { type: "model", src: "assets/models/xxx.glb", ... } instead
+        // once a real GLB is available - sceneBuilder already supports it.
+        type: "points",
+        src: "assets/models/fish-points.bin",
+        color: 0x111111,
+        pointSize: 0.012,
+        position: [0, 0, 0.25],
+        scale: 0.9,
+        animation: "spin",
+        spinSpeed: 0.5,
       },
     ],
     onFound: "play",

@@ -17,7 +17,7 @@ exhibition content — swap in the real trigger images and media before the show
 | Trigger | Content type | Files |
 | --- | --- | --- |
 | `trigger-01` | Video overlay | `assets/videos/01-video-overlay.mp4` |
-| `trigger-02` | 3D model + animation (placeholder: procedural primitive) | — |
+| `trigger-02` | 3D model + animation (placeholder: rotating particle-cloud fish) | `assets/models/fish-points.bin` |
 | `trigger-03` | Transparent animated overlay | `assets/videos/03-alpha-glow-sbs.mp4` |
 | `trigger-04` | Combination: video + 3D model | `assets/videos/04-combo-video.mp4` |
 | `trigger-05` | Combination: transparent overlay + 3D model | reuses `03-alpha-glow-sbs.mp4` |
@@ -57,6 +57,7 @@ iPhone).
     /videos                   MP4 files go here
   /tools
     compile.html              local, offline tool to compile new trigger images into targets.mind
+    points-from-image.html    local, offline tool to turn a reference image into a "points" asset
 ```
 
 No `npm install`, no build step — three.js and MindAR load straight from a
@@ -97,6 +98,10 @@ There is intentionally no CMS — adding a trigger is a two-step process:
    - `{ type: "primitive", geometry, color, position, scale, animation }` —
      procedural three.js mesh (`box` / `sphere` / `torusKnot` / `icosahedron` /
      `octahedron`), `animation: "spin-bob"` for simple rotate+hover motion.
+   - `{ type: "points", src, color, pointSize, position, scale, animation, spinSpeed }` —
+     a static particle cloud (`THREE.Points`) loaded from a raw binary file of
+     packed `[x,y,z, x,y,z, ...]` floats. `animation: "spin"` rotates it
+     continuously. See "Particle-cloud content" below for how to make one.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
@@ -125,6 +130,23 @@ ffmpeg -i color.mov -i alpha.mov -filter_complex hstack -an output-sbs.mp4
 `assets/videos/03-alpha-glow-sbs.mp4` is a synthetic placeholder generated
 this way (a pulsing ring, no source footage) — replace it, don't try to reuse
 it for real content.
+
+### Particle-cloud content
+
+`content` type `"points"` renders a static point cloud — e.g. `trigger-02`'s
+placeholder is a fish illustration reduced to ~6,000 of its own stipple/ink
+dots, extruded into a rough volume (denser "body" regions bulge more than
+thin "fin" edges, estimated from local point density) so it holds together
+reasonably when rotated, not just from directly in front.
+
+To make your own from an image: open `tools/points-from-image.html` locally,
+drop in a high-contrast image (line art, stipple/halftone illustration, or a
+clean silhouette work best — it samples dark pixels directly as points),
+tune the threshold/point-count/depth sliders against the live preview, and
+download the resulting `points.bin`. Put it in `assets/models/` and reference
+it from a `"points"` content entry in `config.js`. This is a flat-image-based
+approximation, not a real 3D scan — for a true volumetric object, use a real
+GLB via `type: "model"` instead.
 
 ## Preparing real trigger images
 

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Point Cloud Generator — AR Exhibition</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #222;
+  }
+  h1 { font-size: 20px; }
+  p.hint { color: #666; font-size: 14px; line-height: 1.5; }
+  #dropzone {
+    border: 2px dashed #999;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    margin: 16px 0;
+  }
+  #dropzone.dragover { border-color: #333; background: #f5f5f5; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-top: 14px; }
+  input[type="range"], input[type="number"] { width: 100%; }
+  input[type="file"] { display: none; }
+  .row { display: flex; gap: 20px; }
+  .row > div { flex: 1; }
+  button {
+    font-size: 15px; font-weight: 600; padding: 10px 22px; border-radius: 8px;
+    border: none; background: #111; color: #fff; cursor: pointer; margin-top: 16px;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  canvas { max-width: 100%; border: 1px solid #ddd; border-radius: 8px; margin-top: 16px; background: #f2f2f2; }
+  #stats { font-size: 13px; color: #555; margin-top: 8px; }
+  #downloadLink {
+    display: none; margin-top: 16px; padding: 12px 20px; background: #16a34a;
+    color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <h1>Point Cloud Generator</h1>
+  <p class="hint">
+    Turn a reference image into a black-particle point cloud for the
+    <code>"points"</code> content type in <code>js/config.js</code>. Works best
+    on high-contrast line art, stipple/halftone illustrations, or a clean
+    silhouette on a plain background — it samples dark pixels directly as
+    points. Runs entirely in this browser tab — nothing is uploaded anywhere.
+  </p>
+
+  <div id="dropzone">Click to choose an image, or drag and drop it here</div>
+  <input type="file" id="fileInput" accept="image/*" />
+
+  <div class="row">
+    <div>
+      <label>Darkness threshold: <span id="thresholdVal">150</span> (0-255, pixels darker than this count as ink)</label>
+      <input type="range" id="threshold" min="10" max="250" value="150" />
+    </div>
+    <div>
+      <label>Target point count</label>
+      <input type="number" id="targetCount" min="500" max="30000" step="500" value="6000" />
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Max depth (relative to a 1.0-unit body length)</label>
+      <input type="number" id="maxDepth" min="0" max="0.5" step="0.01" value="0.16" />
+    </div>
+    <div>
+      <label>Min depth (thin edges/fins)</label>
+      <input type="number" id="minDepth" min="0" max="0.2" step="0.005" value="0.02" />
+    </div>
+  </div>
+
+  <button id="generateBtn" disabled>Generate</button>
+
+  <canvas id="preview" width="600" height="400"></canvas>
+  <div id="stats"></div>
+  <a id="downloadLink" download="points.bin">Download points.bin</a>
+
+  <script>
+    function mulberry32(a) {
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const thresholdInput = document.getElementById("threshold");
+    const thresholdVal = document.getElementById("thresholdVal");
+    const targetCountInput = document.getElementById("targetCount");
+    const maxDepthInput = document.getElementById("maxDepth");
+    const minDepthInput = document.getElementById("minDepth");
+    const generateBtn = document.getElementById("generateBtn");
+    const canvas = document.getElementById("preview");
+    const ctx = canvas.getContext("2d");
+    const statsEl = document.getElementById("stats");
+    const downloadLink = document.getElementById("downloadLink");
+
+    let img = null;
+
+    thresholdInput.addEventListener("input", () => {
+      thresholdVal.textContent = thresholdInput.value;
+    });
+
+    function loadFile(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        img = new Image();
+        img.onload = () => {
+          generateBtn.disabled = false;
+          statsEl.textContent = `Loaded ${img.width}×${img.height}. Click Generate.`;
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    dropzone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => loadFile(e.target.files[0]));
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      loadFile(e.dataTransfer.files[0]);
+    });
+
+    generateBtn.addEventListener("click", () => {
+      const rand = mulberry32(42);
+      const threshold = parseInt(thresholdInput.value, 10);
+      const targetCount = parseInt(targetCountInput.value, 10);
+      const maxDepth = parseFloat(maxDepthInput.value);
+      const minDepth = parseFloat(minDepthInput.value);
+
+      const work = document.createElement("canvas");
+      work.width = img.width;
+      work.height = img.height;
+      const wctx = work.getContext("2d");
+      wctx.drawImage(img, 0, 0);
+      const { data, width, height } = wctx.getImageData(0, 0, img.width, img.height);
+
+      const darkPixels = [];
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          if (data[i + 3] < 10) continue;
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          if (lum < threshold) darkPixels.push([x, y]);
+        }
+      }
+
+      let sampled;
+      if (darkPixels.length <= targetCount) {
+        sampled = darkPixels;
+      } else {
+        sampled = [];
+        const step = darkPixels.length / targetCount;
+        for (let i = 0; i < targetCount; i++) {
+          const idx = Math.min(darkPixels.length - 1, Math.floor(i * step + rand() * step));
+          sampled.push(darkPixels[idx]);
+        }
+      }
+
+      if (sampled.length === 0) {
+        statsEl.textContent = "No dark pixels found — try raising the threshold.";
+        return;
+      }
+
+      const xs = sampled.map((p) => p[0]);
+      const ys = sampled.map((p) => p[1]);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+      const spanX = maxX - minX, spanY = maxY - minY;
+      const span = Math.max(spanX, spanY);
+      const scale = 1 / span;
+
+      const gridSize = 36;
+      const counts = new Float32Array(gridSize * gridSize);
+      const cellOf = (x, y) => {
+        const gx = Math.min(gridSize - 1, Math.floor(((x - minX) / spanX) * gridSize));
+        const gy = Math.min(gridSize - 1, Math.floor(((y - minY) / spanY) * gridSize));
+        return gy * gridSize + gx;
+      };
+      for (const [x, y] of sampled) counts[cellOf(x, y)]++;
+      const maxCount = Math.max(...counts);
+
+      const out = new Float32Array(sampled.length * 3);
+      for (let i = 0; i < sampled.length; i++) {
+        const [x, y] = sampled[i];
+        const nx = (x - cx) * scale;
+        const ny = -(y - cy) * scale;
+        const density = counts[cellOf(x, y)] / maxCount;
+        const depth = minDepth + (maxDepth - minDepth) * density;
+        const r = rand() * 2 - 1;
+        const nz = Math.sign(r) * Math.sqrt(Math.abs(r)) * depth;
+        out[i * 3 + 0] = nx;
+        out[i * 3 + 1] = ny;
+        out[i * 3 + 2] = nz;
+      }
+
+      // Preview: draw the flat (x,y) projection so you can sanity-check the shape.
+      ctx.fillStyle = "#f2f2f2";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#111";
+      const pad = 20;
+      const drawScale = Math.min((canvas.width - pad * 2) / spanX, (canvas.height - pad * 2) / spanY);
+      for (const [x, y] of sampled) {
+        const px = pad + (x - minX) * drawScale;
+        const py = pad + (y - minY) * drawScale;
+        ctx.fillRect(px, py, 1, 1);
+      }
+
+      statsEl.textContent = `darkPixels=${darkPixels.length}  sampled=${sampled.length}  → points.bin (${out.byteLength} bytes)`;
+
+      const blob = new Blob([out.buffer], { type: "application/octet-stream" });
+      downloadLink.href = URL.createObjectURL(blob);
+      downloadLink.style.display = "inline-block";
+    });
+  </script>
+</body>
+</html>

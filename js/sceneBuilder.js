@@ -100,6 +100,32 @@ function buildPrimitiveItem(item) {
   return { mesh, update };
 }
 
+async function buildPointsItem(item) {
+  const buffer = await fetch(item.src).then((r) => r.arrayBuffer());
+  const positions = new Float32Array(buffer);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: item.color ?? 0x000000,
+    size: item.pointSize ?? 0.01,
+    sizeAttenuation: true,
+  });
+  const points = new THREE.Points(geometry, material);
+  const scale = item.scale ?? 1;
+  points.scale.setScalar(scale);
+  if (item.position) points.position.set(...item.position);
+  if (item.rotation) points.rotation.set(...item.rotation);
+
+  const update =
+    item.animation === "spin"
+      ? (elapsed) => {
+          points.rotation.y = elapsed * (item.spinSpeed ?? 0.6);
+        }
+      : null;
+  return { mesh: points, update };
+}
+
 async function buildModelItem(item) {
   const gltf = await gltfLoader.loadAsync(item.src);
   const model = gltf.scene;
@@ -144,6 +170,10 @@ export async function buildAnchorContent(group, triggerConfig) {
       const { mesh, mixer } = await buildModelItem(item);
       group.add(mesh);
       if (mixer) mixers.push(mixer);
+    } else if (item.type === "points") {
+      const { mesh, update } = await buildPointsItem(item);
+      group.add(mesh);
+      if (update) updaters.push(update);
     } else {
       console.warn(`Unknown content type "${item.type}" in ${triggerConfig.id}`);
     }
