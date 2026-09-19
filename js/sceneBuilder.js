@@ -68,6 +68,18 @@ function buildAlphaVideoItem(item) {
   return { mesh, video };
 }
 
+function buildBackdropItem(item) {
+  const geometry = new THREE.PlaneGeometry(item.width ?? 1, item.height ?? 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: item.color ?? 0xffffff,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  if (item.position) mesh.position.set(...item.position);
+  if (item.rotation) mesh.rotation.set(...item.rotation);
+  return { mesh };
+}
+
 const PRIMITIVE_GEOMETRIES = {
   box: () => new THREE.BoxGeometry(1, 1, 1),
   sphere: () => new THREE.SphereGeometry(0.6, 32, 32),
@@ -154,7 +166,10 @@ export async function buildAnchorContent(group, triggerConfig) {
   const mixers = [];
 
   for (const item of triggerConfig.content) {
-    if (item.type === "video") {
+    if (item.type === "backdrop") {
+      const { mesh } = buildBackdropItem(item);
+      group.add(mesh);
+    } else if (item.type === "video") {
       const { mesh, video } = buildVideoItem(item);
       group.add(mesh);
       videos.push(video);

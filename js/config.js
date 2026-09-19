@@ -4,6 +4,8 @@
 // with the matching targetIndex (the image's position in the compile order).
 //
 // Content item types supported by sceneBuilder.js:
+//   "backdrop"     - a flat, unlit, solid-color plane (e.g. a white card behind
+//                    other content so it doesn't blend into the camera feed).
 //   "video"        - opaque video plane (regular MP4, e.g. filmed/rendered footage)
 //   "alpha-video"  - transparent animated overlay. Source is a single MP4 where the
 //                    LEFT half is the RGB color and the RIGHT half is a grayscale
@@ -44,6 +46,17 @@ export const triggers = [
     label: "3D model + animation",
     content: [
       {
+        // Flat white card sitting on the image, behind the fish, so the
+        // particle cloud reads clearly instead of blending into whatever's
+        // behind the camera. Sized to comfortably cover the fish below at
+        // its current scale - widen this if the fish's `scale` grows further.
+        type: "backdrop",
+        color: 0xffffff,
+        width: 2.3,
+        height: 1.3,
+        position: [0, 0, 0],
+      },
+      {
         // Particle-cloud rendering of a reference fish illustration,
         // extracted from its stipple/halftone dots. Swap this for
         // { type: "model", src: "assets/models/xxx.glb", ... } instead
@@ -53,7 +66,7 @@ export const triggers = [
         color: 0x111111,
         pointSize: 0.012,
         position: [0, 0, 0.25],
-        scale: 0.9,
+        scale: 1.8,
         animation: "spin",
         spinSpeed: 0.5,
       },
