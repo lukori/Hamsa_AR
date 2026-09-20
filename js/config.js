@@ -67,6 +67,14 @@
 //                    chosen axis (`flipSpeed` turns/sec, `flipSpeedVariance`) rather
 //                    than a shared axis - a shared axis/speed for every instance is
 //                    what makes procedural animation read as robotic/duplicated.
+//                    `emissiveBoost` (0-1ish, default 0.9) blends the model's own
+//                    texture in as emissive light, so it stays evenly bright no
+//                    matter which way it's currently facing the scene's directional
+//                    light - without it, a tumbling lit model flickers dark every
+//                    time it turns away from the light, which reads as "the eyes
+//                    look dark" since it happens on essentially every instance at
+//                    some point in its tumble. Set to 0 to fall back to normal
+//                    lighting only.
 
 export const triggers = [
   {

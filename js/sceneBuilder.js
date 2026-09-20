@@ -273,6 +273,21 @@ async function buildMeshRainItem(item) {
     return { mesh: group, update: null };
   }
 
+  // Instances tumble on random axes, so whichever face is lit by the
+  // scene's directional light keeps changing - a purely lit material reads
+  // as "flickering between bright and dark" as it turns. Blending in some
+  // of the model's own texture as emissive light makes it stay evenly lit
+  // regardless of which way it's currently facing (closer to how the flat
+  // sprite version always looked evenly bright). `emissiveBoost` of 0
+  // disables this and falls back to normal lighting only.
+  const emissiveBoost = item.emissiveBoost ?? 0.9;
+  if (material && emissiveBoost > 0 && "emissive" in material) {
+    material = material.clone();
+    material.emissive = new THREE.Color(0xffffff);
+    material.emissiveMap = material.map ?? null;
+    material.emissiveIntensity = emissiveBoost;
+  }
+
   // Normalize so the model's own largest dimension equals 1 world unit,
   // regardless of the source file's native scale/units - this way
   // minScale/maxScale mean the same thing here as they do for sprite-rain

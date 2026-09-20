@@ -180,7 +180,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      rather than in lockstep; `fallSpeedVariance` randomizes each instance's
      rate too, so they don't all move at the same speed either. `trigger-03`
      uses this for a continuously-falling "rain of eyes" effect.
-   - `{ type: "mesh-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance, flipSpeed, flipSpeedVariance }` —
+   - `{ type: "mesh-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance, flipSpeed, flipSpeedVariance, emissiveBoost }` —
      the 3D counterpart to `"sprite-rain"`: same box/grid/jitter/fall
      placement, but each instance is a real GLB model instead of a flat
      billboard, rendered as a single `THREE.InstancedMesh` (one draw call
@@ -195,7 +195,15 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      a shared axis/speed for every instance is what makes procedural
      animation read as robotic or copy-pasted. `trigger-04` uses this for a
      "rain of coins" effect (a flat, coin-shaped eye model that tumbles like
-     a flipped coin while it falls).
+     a flipped coin while it falls). `emissiveBoost` (default 0.9) blends the
+     model's own texture in as emissive light so it stays evenly bright
+     regardless of which way it's currently facing the scene light — without
+     it, a real lit model that's constantly tumbling visibly darkens every
+     time it turns away from the light, which is what "the eyes look kind of
+     dark" turned out to be (confirmed by testing the same model at a fixed
+     worst-case, near-perpendicular-to-light angle with `emissiveBoost` at a
+     few different values before picking 0.9). Set to `0` for normal lighting
+     only.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
