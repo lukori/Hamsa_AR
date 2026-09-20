@@ -50,7 +50,10 @@
 //                    adds a soft offset dark decal behind each sprite on the wall
 //                    (`shadowOpacity`, `shadowOffset`) - a cheap fake, not a real
 //                    dynamic shadow (camera-facing sprites have no normals for real
-//                    shadow-mapping to use).
+//                    shadow-mapping to use). `fallSpeed` (box-height units/sec, 0 = static)
+//                    makes every instance continuously fall and wrap back to the top -
+//                    each keeps its own fixed starting phase so they wrap independently,
+//                    and `fallSpeedVariance` randomizes each instance's rate a bit too.
 
 export const triggers = [
   {
@@ -114,27 +117,34 @@ export const triggers = [
     content: [
       {
         // A field of the same eye icon (assets/textures/eye.png) at varying
-        // sizes and 3D depths, filling an imaginary box the same width as
-        // the trigger image and 3x its height, with the image as the box's
-        // back wall - eyes appear to rain down through and around the
-        // printed image, extending above and below its physical bounds.
-        // Arranged on a jittered grid (rows x cols x depthLayers), not pure
-        // random, so it reads as organized rather than messy. Each eye gets
-        // a soft offset shadow decal on the wall behind it, suggesting a
-        // light from the front.
+        // sizes and 3D depths, filling an imaginary box 3x the trigger
+        // image's own width (centered - 1x extra width on each side) and
+        // 3x its height, with the image as the box's back wall - eyes rain
+        // down through and around the printed image, extending well beyond
+        // its physical bounds on every side. Arranged on a jittered grid
+        // (rows x cols x depthLayers), not pure random, so it reads as
+        // organized rather than messy; `cols` scaled up 3x along with
+        // boxWidth to keep the same density as before, rather than
+        // spreading the original count thinner across more space. Each eye
+        // gets a soft offset shadow decal on the wall behind it, and
+        // continuously falls and wraps back to the top (fallSpeed), each at
+        // its own independently randomized rate (fallSpeedVariance) so they
+        // don't move in lockstep.
         type: "sprite-rain",
         src: "assets/textures/eye.png",
-        boxWidth: 1,
+        boxWidth: 3,
         boxHeight: 3,
         boxDepth: 0.8,
         rows: 7,
-        cols: 3,
+        cols: 9,
         depthLayers: 2,
         minScale: 0.09,
         maxScale: 0.22,
         shadow: true,
         shadowOpacity: 0.3,
         shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.5,
+        fallSpeedVariance: 0.25,
       },
     ],
   },

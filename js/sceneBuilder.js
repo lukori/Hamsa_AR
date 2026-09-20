@@ -141,6 +141,13 @@ function buildBackdropItem(item) {
 // real dynamic shadow - camera-facing billboards don't have normals for
 // real shadow-mapping to work with, and it isn't worth the render cost
 // here anyway), suggesting a light source in front of the box.
+//
+// `fallSpeed` (box-height units/sec) makes every instance continuously
+// drop and wrap back to the top once it passes the bottom, like a
+// perpetual rain/Matrix-code effect - each instance keeps its own fixed
+// starting phase, so they wrap independently rather than in lockstep, and
+// `fallSpeedVariance` randomizes each instance's rate a bit so they don't
+// all move in unison either.
 function buildSpriteRainItem(item) {
   const group = new THREE.Group();
 
@@ -160,10 +167,13 @@ function buildSpriteRainItem(item) {
   const castShadow = item.shadow !== false;
   const shadowOpacity = item.shadowOpacity ?? 0.3;
   const shadowOffset = item.shadowOffset ?? [0.02, -0.025];
+  const fallSpeed = item.fallSpeed ?? 0; // 0 = static, no animation
+  const fallSpeedVariance = item.fallSpeedVariance ?? 0.25; // +/- fraction of fallSpeed
 
   const cellW = boxWidth / cols;
   const cellH = boxHeight / rows;
   const cellD = boxDepth / depthLayers;
+  const topY = boxHeight / 2;
 
   const shadowMaterial = castShadow ? makeRadialGlowMaterial(0x000000, shadowOpacity, 0.05) : null;
   const shadowGeometry = castShadow ? new THREE.PlaneGeometry(1, 1) : null;
@@ -172,15 +182,17 @@ function buildSpriteRainItem(item) {
   // so one instance avoids needless material/texture duplication.
   const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
 
+  const instances = [];
+
   for (let k = 0; k < depthLayers; k++) {
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < cols; j++) {
         const cx = -boxWidth / 2 + cellW * (j + 0.5);
-        const cy = boxHeight / 2 - cellH * (i + 0.5); // top row first = rain falls top to bottom
+        const cy = topY - cellH * (i + 0.5); // top row first = rain falls top to bottom
         const cz = wallZ + cellD * (k + 0.5);
 
         const x = cx + (Math.random() - 0.5) * cellW * jitter;
-        const y = cy + (Math.random() - 0.5) * cellH * jitter;
+        const y0 = cy + (Math.random() - 0.5) * cellH * jitter;
         const z = cz + (Math.random() - 0.5) * cellD * jitter;
 
         // Slightly smaller the further back, on top of independent random
@@ -190,14 +202,24 @@ function buildSpriteRainItem(item) {
 
         const sprite = new THREE.Sprite(spriteMaterial);
         sprite.scale.setScalar(scale);
-        sprite.position.set(x, y, z);
+        sprite.position.set(x, y0, z);
         group.add(sprite);
 
+        let shadowMesh = null;
         if (castShadow) {
-          const shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
+          shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
           shadowMesh.scale.setScalar(scale * 1.4);
-          shadowMesh.position.set(x + shadowOffset[0], y + shadowOffset[1], wallZ * 0.4);
+          shadowMesh.position.set(x + shadowOffset[0], y0 + shadowOffset[1], wallZ * 0.4);
           group.add(shadowMesh);
+        }
+
+        if (fallSpeed > 0) {
+          instances.push({
+            sprite,
+            shadowMesh,
+            phase: topY - y0, // how far below the top this instance starts
+            speed: fallSpeed * (1 + (Math.random() * 2 - 1) * fallSpeedVariance),
+          });
         }
       }
     }
@@ -205,7 +227,20 @@ function buildSpriteRainItem(item) {
 
   if (item.position) group.position.set(...item.position);
   if (item.rotation) group.rotation.set(...item.rotation);
-  return { mesh: group };
+
+  const update =
+    fallSpeed > 0
+      ? (elapsed) => {
+          for (const inst of instances) {
+            const fallen = (inst.phase + elapsed * inst.speed) % boxHeight;
+            const y = topY - fallen;
+            inst.sprite.position.y = y;
+            if (inst.shadowMesh) inst.shadowMesh.position.y = y + shadowOffset[1];
+          }
+        }
+      : null;
+
+  return { mesh: group, update };
 }
 
 const PRIMITIVE_GEOMETRIES = {
@@ -440,8 +475,9 @@ export async function buildAnchorContent(group, triggerConfig) {
       group.add(mesh);
       if (update) updaters.push(update);
     } else if (item.type === "sprite-rain") {
-      const { mesh } = buildSpriteRainItem(item);
+      const { mesh, update } = buildSpriteRainItem(item);
       group.add(mesh);
+      if (update) updaters.push(update);
     } else {
       console.warn(`Unknown content type "${item.type}" in ${triggerConfig.id}`);
     }

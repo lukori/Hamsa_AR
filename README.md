@@ -163,7 +163,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      individual orbit (`driftAmount` = orbit radius, `driftSpeed` = how fast)
      so the cloud shimmers in place rather than looking rigid. See
      "Particle-cloud content" below for how to make one.
-   - `{ type: "sprite-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset }` —
+   - `{ type: "sprite-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance }` —
      many camera-facing copies of one image, scattered through an imaginary
      box in front of the trigger image (the image is the box's back wall).
      Placed on a jittered grid (`rows` × `cols` × `depthLayers`, wandering up
@@ -173,8 +173,13 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      `shadow: true` adds a soft offset dark decal on the wall behind each
      sprite (`shadowOpacity`, `shadowOffset`) suggesting a light from the
      front — a cheap fake, not a real dynamic shadow (camera-facing sprites
-     have no surface normals for real shadow-mapping to use). `trigger-03`
-     uses this for a "rain of eyes" effect.
+     have no surface normals for real shadow-mapping to use). `fallSpeed`
+     (box-height units/sec, default 0 = static) makes every instance
+     continuously fall and wrap back to the top once it passes the bottom,
+     each keeping its own fixed starting phase so they wrap independently
+     rather than in lockstep; `fallSpeedVariance` randomizes each instance's
+     rate too, so they don't all move at the same speed either. `trigger-03`
+     uses this for a continuously-falling "rain of eyes" effect.
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
