@@ -243,6 +243,153 @@ function buildSpriteRainItem(item) {
   return { mesh: group, update };
 }
 
+// Same box/grid/jitter/fall placement as buildSpriteRainItem above, but each
+// instance is a real 3D mesh (loaded once from a GLB) tumbling like a
+// flipped coin, instead of a camera-facing flat sprite. Rendered as a single
+// THREE.InstancedMesh - with real geometry (tens of thousands of triangles)
+// rather than a flat plane, drawing each instance as its own Mesh/Object3D
+// would mean one draw call per coin; instancing keeps it to one draw call
+// total no matter how many coins are in the field.
+//
+// Each coin flips around its OWN randomly-oriented axis (not just Y) at its
+// own randomized speed and starting angle - a shared axis/speed for every
+// instance is exactly what makes procedural animation read as "robotic" or
+// "duplicated"; per-instance randomization is what sells "many independent
+// tumbling coins".
+async function buildMeshRainItem(item) {
+  const group = new THREE.Group();
+
+  const gltf = await gltfLoader.loadAsync(item.src);
+  let geometry = null;
+  let material = null;
+  gltf.scene.traverse((obj) => {
+    if (obj.isMesh && !geometry) {
+      geometry = obj.geometry;
+      material = obj.material;
+    }
+  });
+  if (!geometry) {
+    console.warn(`mesh-rain: no mesh found in ${item.src}`);
+    return { mesh: group, update: null };
+  }
+
+  // Normalize so the model's own largest dimension equals 1 world unit,
+  // regardless of the source file's native scale/units - this way
+  // minScale/maxScale mean the same thing here as they do for sprite-rain
+  // (a target world-space size), not "whatever units the GLB happened to
+  // use".
+  geometry.computeBoundingBox();
+  const bboxSize = new THREE.Vector3();
+  geometry.boundingBox.getSize(bboxSize);
+  const normalizeScale = 1 / (Math.max(bboxSize.x, bboxSize.y, bboxSize.z) || 1);
+
+  const boxWidth = item.boxWidth ?? 1;
+  const boxHeight = item.boxHeight ?? 3;
+  const boxDepth = item.boxDepth ?? 0.8;
+  const rows = item.rows ?? 6;
+  const cols = item.cols ?? 3;
+  const depthLayers = item.depthLayers ?? 2;
+  const minScale = item.minScale ?? 0.09;
+  const maxScale = item.maxScale ?? 0.22;
+  const wallZ = item.wallZ ?? 0.02;
+  const jitter = item.jitter ?? 0.55;
+  const castShadow = item.shadow !== false;
+  const shadowOpacity = item.shadowOpacity ?? 0.3;
+  const shadowOffset = item.shadowOffset ?? [0.02, -0.025];
+  const fallSpeed = item.fallSpeed ?? 0;
+  const fallSpeedVariance = item.fallSpeedVariance ?? 0.25;
+  const flipSpeed = item.flipSpeed ?? 0.6; // full turns/sec around the coin's own axis
+  const flipSpeedVariance = item.flipSpeedVariance ?? 0.4;
+
+  const cellW = boxWidth / cols;
+  const cellH = boxHeight / rows;
+  const cellD = boxDepth / depthLayers;
+  const topY = boxHeight / 2;
+
+  const count = rows * cols * depthLayers;
+  const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+  instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // Default frustum culling uses the *local* geometry's bounding sphere,
+  // which is far too small once instances are scattered across the whole
+  // box - without this, coins near the box's edges can wrongly disappear.
+  instancedMesh.frustumCulled = false;
+  group.add(instancedMesh);
+
+  const shadowMaterial = castShadow ? makeRadialGlowMaterial(0x000000, shadowOpacity, 0.05) : null;
+  const shadowGeometry = castShadow ? new THREE.PlaneGeometry(1, 1) : null;
+
+  const instances = [];
+  const dummy = new THREE.Object3D();
+  let index = 0;
+
+  for (let k = 0; k < depthLayers; k++) {
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const cx = -boxWidth / 2 + cellW * (j + 0.5);
+        const cy = topY - cellH * (i + 0.5);
+        const cz = wallZ + cellD * (k + 0.5);
+
+        const x = cx + (Math.random() - 0.5) * cellW * jitter;
+        const y0 = cy + (Math.random() - 0.5) * cellH * jitter;
+        const z = cz + (Math.random() - 0.5) * cellD * jitter;
+
+        const depthT = (z - wallZ) / boxDepth;
+        const worldScale = (minScale + Math.random() * (maxScale - minScale)) * (1 - depthT * 0.25);
+
+        const axis = new THREE.Vector3(
+          Math.random() * 2 - 1,
+          Math.random() * 2 - 1,
+          Math.random() * 2 - 1
+        ).normalize();
+        const flipSp = flipSpeed * (1 + (Math.random() * 2 - 1) * flipSpeedVariance);
+        const startAngle = Math.random() * Math.PI * 2;
+
+        let shadowMesh = null;
+        if (castShadow) {
+          shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
+          shadowMesh.scale.setScalar(worldScale * 1.4);
+          shadowMesh.position.set(x + shadowOffset[0], y0 + shadowOffset[1], wallZ * 0.4);
+          group.add(shadowMesh);
+        }
+
+        instances.push({
+          index: index++,
+          x,
+          z,
+          geomScale: worldScale * normalizeScale,
+          axis,
+          flipSp,
+          startAngle,
+          phase: topY - y0,
+          fallSp: fallSpeed * (1 + (Math.random() * 2 - 1) * fallSpeedVariance),
+          shadowMesh,
+        });
+      }
+    }
+  }
+
+  if (item.position) group.position.set(...item.position);
+  if (item.rotation) group.rotation.set(...item.rotation);
+
+  const update = (elapsed) => {
+    for (const inst of instances) {
+      const fallen = fallSpeed > 0 ? (inst.phase + elapsed * inst.fallSp) % boxHeight : inst.phase;
+      const y = topY - fallen;
+
+      dummy.position.set(inst.x, y, inst.z);
+      dummy.quaternion.setFromAxisAngle(inst.axis, inst.startAngle + elapsed * inst.flipSp * Math.PI * 2);
+      dummy.scale.setScalar(inst.geomScale);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(inst.index, dummy.matrix);
+
+      if (inst.shadowMesh) inst.shadowMesh.position.y = y + shadowOffset[1];
+    }
+    instancedMesh.instanceMatrix.needsUpdate = true;
+  };
+
+  return { mesh: group, update };
+}
+
 const PRIMITIVE_GEOMETRIES = {
   box: () => new THREE.BoxGeometry(1, 1, 1),
   sphere: () => new THREE.SphereGeometry(0.6, 32, 32),
@@ -476,6 +623,10 @@ export async function buildAnchorContent(group, triggerConfig) {
       if (update) updaters.push(update);
     } else if (item.type === "sprite-rain") {
       const { mesh, update } = buildSpriteRainItem(item);
+      group.add(mesh);
+      if (update) updaters.push(update);
+    } else if (item.type === "mesh-rain") {
+      const { mesh, update } = await buildMeshRainItem(item);
       group.add(mesh);
       if (update) updaters.push(update);
     } else {

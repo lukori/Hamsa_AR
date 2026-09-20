@@ -54,6 +54,19 @@
 //                    makes every instance continuously fall and wrap back to the top -
 //                    each keeps its own fixed starting phase so they wrap independently,
 //                    and `fallSpeedVariance` randomizes each instance's rate a bit too.
+//   "mesh-rain"    - same box/grid/jitter/fall placement as "sprite-rain", but each
+//                    instance is a real 3D model (`src`, a GLB) instead of a flat
+//                    billboard, rendered as one THREE.InstancedMesh (single draw call
+//                    regardless of instance count - important since each instance
+//                    here has real, non-trivial geometry, unlike a sprite's flat
+//                    plane). `minScale`/`maxScale` are the model's own target
+//                    world-space size (its largest dimension is normalized to 1 unit
+//                    first, so these behave the same as in "sprite-rain" regardless of
+//                    the source file's native scale). On top of falling, every
+//                    instance continuously flips/tumbles around its OWN randomly
+//                    chosen axis (`flipSpeed` turns/sec, `flipSpeedVariance`) rather
+//                    than a shared axis - a shared axis/speed for every instance is
+//                    what makes procedural animation read as robotic/duplicated.
 
 export const triggers = [
   {
@@ -151,26 +164,40 @@ export const triggers = [
   {
     id: "trigger-04",
     targetIndex: 3,
-    label: "Combination: video + 3D model",
+    label: "Rain of eye coins (3D)",
     content: [
       {
-        type: "video",
-        src: "assets/videos/04-combo-video.mp4",
-        width: 1,
-        height: 1,
-        loop: true,
-      },
-      {
-        type: "primitive",
-        geometry: "icosahedron",
-        color: 0xff6b6b,
-        position: [0, 0, 0.3],
-        scale: 0.14,
-        animation: "spin-bob",
+        // Same "rain" idea as trigger-03, but each falling instance is a
+        // real 3D model (a flat, coin-shaped eye illustration - hence
+        // "flateye") instead of a flat sprite, and on top of falling it
+        // continuously tumbles/flips end over end like a flipped coin -
+        // each one around its own randomly chosen axis at its own speed, so
+        // the field reads as many independent coins rather than one
+        // animation copy-pasted. Source GLB was a raw AI image-to-3D export
+        // at 1.95M triangles / 55MB (single mesh, single texture, no
+        // rigging - the same story as trigger-05's fish); decimated with
+        // gltf-transform the same way, down to ~39k triangles / 314KB. Held
+        // up well visually, and rendered as one THREE.InstancedMesh so the
+        // whole field is a single draw call no matter the instance count.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 3,
+        boxDepth: 0.8,
+        rows: 5,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
       },
     ],
-    onFound: "play",
-    onLost: "pause",
   },
   {
     id: "trigger-05",

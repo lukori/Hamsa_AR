@@ -19,7 +19,7 @@ exhibition content — swap in the real trigger images and media before the show
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
 | `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
 | `trigger-03` | `trigger-03.png` (placeholder) | Rain of eyes (real content, placeholder trigger image) | `assets/textures/eye.png` |
-| `trigger-04` | `trigger-04.png` (placeholder) | Combination: video + 3D model (placeholder) | `assets/videos/04-combo-video.mp4` |
+| `trigger-04` | `trigger-04.png` (placeholder) | Rain of eye coins (real content, 3D, placeholder trigger image) | `assets/models/flateye.glb` |
 | `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
 `trigger-01` now uses a real exhibition image and real video content, no
@@ -180,6 +180,22 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      rather than in lockstep; `fallSpeedVariance` randomizes each instance's
      rate too, so they don't all move at the same speed either. `trigger-03`
      uses this for a continuously-falling "rain of eyes" effect.
+   - `{ type: "mesh-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance, flipSpeed, flipSpeedVariance }` —
+     the 3D counterpart to `"sprite-rain"`: same box/grid/jitter/fall
+     placement, but each instance is a real GLB model instead of a flat
+     billboard, rendered as a single `THREE.InstancedMesh` (one draw call
+     total, regardless of instance count — important once each instance has
+     real geometry rather than a flat plane). The model's own largest
+     dimension is normalized to 1 unit internally, so `minScale`/`maxScale`
+     mean the same target world-space size as they do for `"sprite-rain"`,
+     whatever units the source file used. On top of falling (`fallSpeed`/
+     `fallSpeedVariance`, same meaning as `"sprite-rain"`), every instance
+     continuously flips/tumbles around its OWN randomly chosen axis
+     (`flipSpeed` turns/sec, `flipSpeedVariance`) rather than a shared axis —
+     a shared axis/speed for every instance is what makes procedural
+     animation read as robotic or copy-pasted. `trigger-04` uses this for a
+     "rain of coins" effect (a flat, coin-shaped eye model that tumbles like
+     a flipped coin while it falls).
 
    A trigger's `content` array can mix any of these — everything in it shares
    one anchor group, so it all moves together, matching the physical image
@@ -308,6 +324,16 @@ From the brief — worth re-reading before printing anything:
 - Check the result with `npx @gltf-transform/cli inspect your-model.glb` —
   it prints triangle count, texture sizes, and material/animation info
   without needing to open it in a 3D app.
+- Same story for `trigger-04`'s `assets/models/flateye.glb`: came in at
+  **1.95M triangles / 55.6MB**, decimated to **~39k triangles / 314KB**
+  (`--simplify-ratio 0.02 --texture-size 512`, otherwise the same
+  gltf-transform command as above). This one is instanced dozens of times at
+  once for the "rain of coins" effect (`"mesh-rain"` content type, above) —
+  when a model is going to be duplicated many times like that, decimate it
+  harder than a single-instance model like `trigger-05`'s fish, since the
+  per-instance cost multiplies. Rendered via `THREE.InstancedMesh` so it's
+  still one draw call regardless of instance count, but the geometry itself
+  (vertex count) is shared and paid for once per unique triangle either way.
 
 ## Updating the deployed site (cache-busting)
 
