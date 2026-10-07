@@ -216,6 +216,43 @@ export const triggers = [
     ],
   },
   {
+    id: "trigger-03c",
+    targetIndex: 6,
+    label: "Hamsa text panel - higher-resolution wall photo variant (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    content: [
+      {
+        // Third image for the same print: a higher-resolution photo of the
+        // printed panel on the gallery wall (assets/targets-source/
+        // what_luck_text_trigger_photo2.jpg, scaled from 1500x2000 to
+        // 900x1200 to keep targets.mind's size down; compiled at index 6).
+        // Same content as trigger-03; `group` keeps only one shown.
+        // boxHeight = 3 * 1200/900 = 4.0 for this image's own aspect.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
     id: "trigger-04",
     targetIndex: 3,
     label: "Rain of eye coins (3D)",

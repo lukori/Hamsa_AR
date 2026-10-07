@@ -20,6 +20,7 @@ exhibition content — swap in the real trigger images and media before the show
 | `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
 | `trigger-03` | `what_luck_text_trigger.jpg` (real) | Rain of eye coins (3D, same as `trigger-04`) | `assets/models/flateye.glb` |
 | `trigger-03b` | `what_luck_text_trigger_photo1.jpg` (real, wall photo) | Same coin rain as `trigger-03` (same `group`, only one shows at a time) | `assets/models/flateye.glb` |
+| `trigger-03c` | `what_luck_text_trigger_photo2.jpg` (real, higher-res wall photo) | Same coin rain, same `group` | `assets/models/flateye.glb` |
 | `trigger-04` | `trigger-04.png` (placeholder) | Rain of eye coins (real content, 3D, placeholder trigger image) | `assets/models/flateye.glb` |
 | `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
@@ -296,7 +297,7 @@ found) - without that, near-identical variants matching together would each
 draw their own overlapping copy of the content. Append new images at the END
 of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
-count modest. Currently: `trigger-03` + `trigger-03b` share `text-panel`.
+count modest. Currently: `trigger-03`, `trigger-03b` and `trigger-03c` share `text-panel`.
 
 ## Preparing real trigger images
 
