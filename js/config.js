@@ -116,30 +116,8 @@ export const triggers = [
     onLost: "pause",
   },
   {
-    id: "trigger-02",
-    targetIndex: 1,
-    label: "3D model + animation",
-    content: [
-      {
-        // Swap this for { type: "model", src: "assets/models/xxx.glb", ... }
-        // once a real GLB is available. sceneBuilder already supports it.
-        // (The particle-cloud experiments that used to live here are kept
-        // in git history - see the checkpoint-galaxy-fish-glow tag - in
-        // case that direction gets picked back up later.)
-        type: "primitive",
-        geometry: "torusKnot",
-        color: 0x4d96ff,
-        position: [0, 0, 0.22],
-        scale: 0.18,
-        animation: "spin-bob",
-      },
-    ],
-    onFound: "play",
-    onLost: "pause",
-  },
-  {
     id: "trigger-03",
-    targetIndex: 2,
+    targetIndex: 1,
     label: "Rain of eye coins (3D) on the Hamsa text panel",
     // `group`: triggers sharing a group name (several images of the SAME
     // print under different lighting, all leading to the same content) never
@@ -150,8 +128,8 @@ export const triggers = [
       {
         // Real trigger image: the "What Luck / Luka Or" exhibition text
         // panel (assets/targets-source/what_luck_text_trigger.jpg, 542x769,
-        // compiled into targets.mind at index 2). Same 3D coin rain as
-        // trigger-04 (flateye.glb, tumbling on random axes while falling).
+        // compiled into targets.mind at index 1). 3D coin rain (flateye.glb,
+        // tumbling on random axes while falling).
         //
         // The box is 3x the image's own width (centered, 1x extra on each
         // side) and 3x its own HEIGHT - this image is portrait (769/542 =
@@ -180,7 +158,7 @@ export const triggers = [
   },
   {
     id: "trigger-03b",
-    targetIndex: 5,
+    targetIndex: 2,
     label: "Hamsa text panel - wall photo variant (same coin rain)",
     // `group`: triggers sharing a group name (several images of the SAME
     // print under different lighting, all leading to the same content) never
@@ -192,8 +170,7 @@ export const triggers = [
         // Second image for the same print: a real photo of the printed
         // panel on the gallery wall (assets/targets-source/
         // what_luck_text_trigger_photo1.jpg, 526x745, cropped to the print's
-        // edge; compiled at index 5, appended so existing indexes don't
-        // move). Same content as trigger-03; `group` keeps only one shown.
+        // edge; compiled at index 2). Same content as trigger-03; `group` keeps only one shown.
         // boxHeight = 3 * 745/526 = 4.25 for this image's own aspect.
         type: "mesh-rain",
         src: "assets/models/flateye.glb",
@@ -217,7 +194,7 @@ export const triggers = [
   },
   {
     id: "trigger-03c",
-    targetIndex: 6,
+    targetIndex: 3,
     label: "Hamsa text panel - higher-resolution wall photo variant (same coin rain)",
     // `group`: triggers sharing a group name (several images of the SAME
     // print under different lighting, all leading to the same content) never
@@ -229,7 +206,7 @@ export const triggers = [
         // Third image for the same print: a higher-resolution photo of the
         // printed panel on the gallery wall (assets/targets-source/
         // what_luck_text_trigger_photo2.jpg, scaled from 1500x2000 to
-        // 900x1200 to keep targets.mind's size down; compiled at index 6).
+        // 900x1200 to keep targets.mind's size down; compiled at index 3).
         // Same content as trigger-03; `group` keeps only one shown.
         // boxHeight = 3 * 1200/900 = 4.0 for this image's own aspect.
         type: "mesh-rain",
@@ -251,79 +228,5 @@ export const triggers = [
         flipSpeedVariance: 0.5,
       },
     ],
-  },
-  {
-    id: "trigger-04",
-    targetIndex: 3,
-    label: "Rain of eye coins (3D)",
-    content: [
-      {
-        // Same "rain" idea as sprite-rain (see sceneBuilder.js), but each falling instance is a
-        // real 3D model (a flat, coin-shaped eye illustration - hence
-        // "flateye") instead of a flat sprite, and on top of falling it
-        // continuously tumbles/flips end over end like a flipped coin -
-        // each one around its own randomly chosen axis at its own speed, so
-        // the field reads as many independent coins rather than one
-        // animation copy-pasted. Source GLB was a raw AI image-to-3D export
-        // at 1.95M triangles / 55MB (single mesh, single texture, no
-        // rigging - the same story as trigger-05's fish); decimated with
-        // gltf-transform the same way, down to ~39k triangles / 314KB. Held
-        // up well visually, and rendered as one THREE.InstancedMesh so the
-        // whole field is a single draw call no matter the instance count.
-        type: "mesh-rain",
-        src: "assets/models/flateye.glb",
-        boxWidth: 3,
-        boxHeight: 3,
-        boxDepth: 0.8,
-        rows: 5,
-        cols: 6,
-        depthLayers: 2,
-        minScale: 0.14,
-        maxScale: 0.3,
-        shadow: true,
-        shadowOpacity: 0.3,
-        shadowOffset: [0.02, -0.025],
-        fallSpeed: 0.4,
-        fallSpeedVariance: 0.25,
-        flipSpeed: 0.5,
-        flipSpeedVariance: 0.5,
-      },
-    ],
-  },
-  {
-    id: "trigger-05",
-    targetIndex: 4,
-    label: "3D model (GLB)",
-    content: [
-      {
-        // Real GLB model - a fish. Trigger image is back to the generated
-        // placeholder (assets/targets-source/trigger-05.png, compiled into
-        // targets.mind at index 4) - a real "redblue" poster image was
-        // tried here but was visually too similar to trigger-01's poster
-        // (both busy halftone patterns), and MindAR confused the two,
-        // triggering both anchors off either image. Original GLB export
-        // was 1.9M triangles /
-        // 55MB (a raw AI image-to-3D output); decimated with gltf-transform
-        // (meshoptimizer simplify + meshopt compression + 1024px texture)
-        // to ~168k triangles / 1.25MB, which held up visually very well -
-        // see the README for the exact command.
-        //
-        // NOTE: no `blending` set here on purpose. "multiply" was tried and
-        // made the model fully INVISIBLE: MindAR's renderer is transparent
-        // (alpha: true, no scene background) and the real camera feed is a
-        // separate <video> element behind the canvas via CSS, not part of
-        // the WebGL scene - so MultiplyBlending multiplied against nothing
-        // (0,0,0,0), which is zero everywhere. See the README's "blending"
-        // note under "Using a real GLB model" before re-enabling it.
-        type: "model",
-        src: "assets/models/fisher-fish.glb",
-        position: [0, 0, 0.3],
-        scale: 0.7,
-        animation: "spin",
-        spinSpeed: 0.4,
-      },
-    ],
-    onFound: "play",
-    onLost: "pause",
   },
 ];

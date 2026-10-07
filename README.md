@@ -8,21 +8,20 @@ install, works in iOS Safari and Android Chrome, fully static, no backend.
 
 ## Current status
 
-The scaffold is complete and wired end-to-end for **5 triggers**, each currently
-using **placeholder assets** (procedurally generated trigger images, a couple of
-synthetic test videos, and simple animated 3D primitives). Nothing here is final
-exhibition content — swap in the real trigger images and media before the show
-(see "Replacing placeholders with real content" below).
+The app has **2 experiences** across **4 trigger images**, all real content:
+the yellow poster (video overlay) and the "What Luck / Luka Or" text panel
+(3D coin rain), where three images of the same print - one clean/original and
+two real wall photos - all lead to the same coin rain, so it works under
+different lighting. The earlier placeholder triggers (spinning primitive,
+second coin rain, fish model on a generated image) were removed; see git tag
+`checkpoint-before-placeholder-removal` for the last state that had them.
 
 | Trigger | Trigger image | Content type | Files |
 | --- | --- | --- | --- |
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
-| `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
-| `trigger-03` | `what_luck_text_trigger.jpg` (real) | Rain of eye coins (3D, same as `trigger-04`) | `assets/models/flateye.glb` |
+| `trigger-03` | `what_luck_text_trigger.jpg` (real) | Rain of eye coins (3D) | `assets/models/flateye.glb` |
 | `trigger-03b` | `what_luck_text_trigger_photo1.jpg` (real, wall photo) | Same coin rain as `trigger-03` (same `group`, only one shows at a time) | `assets/models/flateye.glb` |
 | `trigger-03c` | `what_luck_text_trigger_photo2.jpg` (real, higher-res wall photo) | Same coin rain, same `group` | `assets/models/flateye.glb` |
-| `trigger-04` | `trigger-04.png` (placeholder) | Rain of eye coins (real content, 3D, placeholder trigger image) | `assets/models/flateye.glb` |
-| `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
 `trigger-01` now uses a real exhibition image and real video content, no
 longer generated placeholders — see "Preparing real trigger images" below
@@ -32,7 +31,7 @@ content here is always muted, for autoplay); re-encoded to ~6.7 Mbps /
 8.4MB with audio stripped, no visible quality difference on inspection —
 worth doing for any new video
 
-`trigger-05` briefly used a second real poster image
+A trigger briefly used a second real poster image
 (`redblue_poster_trigger.jpg`) but it was reverted back to the generated
 placeholder: it was visually too similar to `trigger-01`'s poster (both busy
 halftone/pop-art patterns), and MindAR confused the two targets — showing
@@ -76,11 +75,11 @@ iPhone).
   index.html              start screen, camera container, imports MindAR + three.js from CDN
   /js
     main.js                MindAR init, camera start, render loop, play/pause on target found/lost
-    config.js               the 5 trigger definitions — EDIT THIS to add/change triggers
+    config.js               the trigger definitions — EDIT THIS to add/change triggers
     sceneBuilder.js          generic content builder (video / alpha-video / model / primitive)
   /assets
-    targets.mind             compiled multi-target file (all 5 trigger images, in targetIndex order)
-    /targets-source           the 5 source trigger images (currently placeholders)
+    targets.mind             compiled multi-target file (all trigger images, in targetIndex order)
+    /targets-source           the source trigger images (not used at runtime, kept for reference)
     /models                   GLB files go here
     /videos                   MP4 files go here
     /textures                 plain images used as textures (e.g. "sprite-rain" sources), not trigger images
@@ -232,14 +231,13 @@ one video, e.g.:
 ffmpeg -i color.mov -i alpha.mov -filter_complex hstack -an output-sbs.mp4
 ```
 
-`assets/videos/03-alpha-glow-sbs.mp4` is a synthetic placeholder generated
-this way (a pulsing ring, no source footage) — replace it, don't try to reuse
-it for real content.
+(A synthetic example, `03-alpha-glow-sbs.mp4`, used to live in this repo;
+it was removed with the placeholder triggers - see git history if needed.)
 
 ### Particle-cloud content
 
 `content` type `"points"` renders a static point cloud. `trigger-02`'s
-placeholder is currently `assets/models/fish-galaxy-points.bin` — 37,500
+placeholder (since removed) used `assets/models/fish-galaxy-points.bin` — 37,500
 points forming a genuinely volumetric fish (fins and eye project outward in
 3D, not just a flat cutout), exported as raw xyz floats from a reference
 particle-galaxy tool's procedural shape generator, rendered with that same
