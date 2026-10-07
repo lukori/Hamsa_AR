@@ -3,6 +3,12 @@
 // recompile /assets/targets.mind (see README), then add an entry here
 // with the matching targetIndex (the image's position in the compile order).
 //
+// Optional per-trigger `group: "name"`: triggers sharing a name never show at
+// the same time (main.js lets only one member show - the one already showing
+// keeps it, else the first found). Use it when several images (e.g. photos of
+// one print under different lighting) lead to the same content, so near-
+// identical matches don't draw overlapping copies.
+//
 // Content item types supported by sceneBuilder.js:
 //   "backdrop"     - an unlit, solid-color plane behind other content so it
 //                    doesn't blend into the camera feed. `radial: true` fades
@@ -135,6 +141,11 @@ export const triggers = [
     id: "trigger-03",
     targetIndex: 2,
     label: "Rain of eye coins (3D) on the Hamsa text panel",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
     content: [
       {
         // Real trigger image: the "What Luck / Luka Or" exhibition text
@@ -151,6 +162,43 @@ export const triggers = [
         src: "assets/models/flateye.glb",
         boxWidth: 3,
         boxHeight: 4.26,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-03b",
+    targetIndex: 5,
+    label: "Hamsa text panel - wall photo variant (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    content: [
+      {
+        // Second image for the same print: a real photo of the printed
+        // panel on the gallery wall (assets/targets-source/
+        // what_luck_text_trigger_photo1.jpg, 526x745, cropped to the print's
+        // edge; compiled at index 5, appended so existing indexes don't
+        // move). Same content as trigger-03; `group` keeps only one shown.
+        // boxHeight = 3 * 745/526 = 4.25 for this image's own aspect.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4.25,
         boxDepth: 0.8,
         rows: 7,
         cols: 6,

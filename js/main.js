@@ -5,7 +5,7 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=15";
+import { triggers } from "./config.js?v=16";
 import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 
 // Same problem, same fix, separate counter: targets.mind has no version in
@@ -14,7 +14,7 @@ import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 // against old trigger images (this bit us once - two brand new trigger
 // images "didn't load" because the phone was still holding a cached
 // targets.mind from before they existed).
-const MIND_VERSION = 5;
+const MIND_VERSION = 6;
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
@@ -75,20 +75,55 @@ async function startExperience() {
     const allUpdaters = [];
     const allMixers = [];
 
+    // Triggers sharing a `group` in config.js (e.g. several photos of the
+    // same print under different lighting, all leading to the same content)
+    // would otherwise each show their own copy of it whenever more than one
+    // image variant matches at once - they look nearly identical, so that's
+    // likely. Only one member per group is allowed to show at a time: the one
+    // already showing keeps it while still tracked, else the first one found.
+    const groups = {};
+    function refreshGroup(name) {
+      const members = groups[name];
+      const winner = members.find((m) => m.shown && m.found) || members.find((m) => m.found);
+      for (const m of members) {
+        m.shown = m === winner;
+        m.content.visible = m.shown;
+      }
+    }
+
     for (const triggerConfig of triggers) {
       const anchor = mindarThree.addAnchor(triggerConfig.targetIndex);
-      const { videos, updaters, mixers } = await buildAnchorContent(anchor.group, triggerConfig);
+      // Content goes in its own child group (not anchor.group directly) so
+      // visibility can be toggled here without fighting MindAR, which
+      // manages anchor.group's own visibility on found/lost.
+      const content = new THREE.Group();
+      anchor.group.add(content);
+      const { videos, updaters, mixers } = await buildAnchorContent(content, triggerConfig);
 
       allVideos.push(...videos);
       allUpdaters.push(...updaters);
       allMixers.push(...mixers);
 
+      const member = { content, found: false, shown: false };
+      if (triggerConfig.group) {
+        (groups[triggerConfig.group] ??= []).push(member);
+        content.visible = false;
+      }
+
       anchor.onTargetFound = () => {
+        if (triggerConfig.group) {
+          member.found = true;
+          refreshGroup(triggerConfig.group);
+        }
         if (triggerConfig.onFound === "play") {
           videos.forEach((v) => v.play().catch(() => {}));
         }
       };
       anchor.onTargetLost = () => {
+        if (triggerConfig.group) {
+          member.found = false;
+          refreshGroup(triggerConfig.group);
+        }
         if (triggerConfig.onLost === "pause") {
           videos.forEach((v) => v.pause());
         }
