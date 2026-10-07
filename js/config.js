@@ -9,6 +9,13 @@
 // one print under different lighting) lead to the same content, so near-
 // identical matches don't draw overlapping copies.
 //
+// Optional per-trigger `lostGraceMs` (default 0 = off): when tracking of this
+// image drops, keep showing its content frozen at the last known pose for this
+// many milliseconds instead of hiding it at once; if the image is re-found in
+// time it carries on, otherwise it disappears. For images that are hard to
+// lock onto (few trackable features) and flicker out for a frame or two.
+// Leave it off for images that track reliably (e.g. the yellow poster).
+//
 // Content item types supported by sceneBuilder.js:
 //   "backdrop"     - an unlit, solid-color plane behind other content so it
 //                    doesn't blend into the camera feed. `radial: true` fades
@@ -124,6 +131,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 500,
     content: [
       {
         // Second image for the same print: a real photo of the printed
@@ -160,6 +168,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 500,
     content: [
       {
         // Third image for the same print: a higher-resolution photo of the
@@ -197,6 +206,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 500,
     content: [
       {
         // Another high-resolution photo of the printed panel on the gallery

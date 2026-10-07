@@ -297,6 +297,23 @@ of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
 count modest. Currently: `trigger-02a`, `02b` and `02c` share `text-panel`.
 
+## Holding content through brief tracking drops (`lostGraceMs`)
+
+MindAR hides an image's content the instant tracking drops. An image with few
+trackable features (like the text panel: ~20 tracking points vs ~100 for the
+yellow poster) loses tracking for a frame or two even while it's in view,
+which reads as the content flickering away. A trigger can opt in to
+`lostGraceMs: 500` in `config.js`: on a loss, the content stays visible,
+frozen at the last known pose, for that many milliseconds; if the image is
+re-found in time it carries on, otherwise it disappears as usual. Default is 0
+(off, identical to before) - the yellow poster doesn't use it. If the held
+content ever feels too sticky (lingering after you've really looked away) or
+too brief, tune the number; around 300-1000 is the sensible range. With
+`group`, a variant that's actually being tracked always takes over from one
+that's only being held. (MindAR has its own global `missTolerance`, but it
+applies to every target at once and isn't used here so the yellow poster stays
+exactly as it was.)
+
 ## Preparing real trigger images
 
 From the brief — worth re-reading before printing anything:

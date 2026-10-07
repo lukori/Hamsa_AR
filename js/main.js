@@ -5,7 +5,7 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=19";
+import { triggers } from "./config.js?v=20";
 import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 
 // Same problem, same fix, separate counter: targets.mind has no version in
@@ -74,21 +74,32 @@ async function startExperience() {
     const allVideos = [];
     const allUpdaters = [];
     const allMixers = [];
+    const members = [];
 
     // Triggers sharing a `group` in config.js (e.g. several photos of the
     // same print under different lighting, all leading to the same content)
     // would otherwise each show their own copy of it whenever more than one
     // image variant matches at once - they look nearly identical, so that's
-    // likely. Only one member per group is allowed to show at a time: the one
-    // already showing keeps it while still tracked, else the first one found.
+    // likely. Only one member per group is allowed to show at a time. A member
+    // that's actually tracked right now beats one that's only being held
+    // through a lost-tracking grace period (see `lostGraceMs` below); among
+    // equals, the one already showing keeps it, else the first one found.
     const groups = {};
     function refreshGroup(name) {
-      const members = groups[name];
-      const winner = members.find((m) => m.shown && m.found) || members.find((m) => m.found);
-      for (const m of members) {
+      const ms = groups[name];
+      const winner =
+        ms.find((m) => m.shown && m.live) ||
+        ms.find((m) => m.live) ||
+        ms.find((m) => m.shown && m.grace) ||
+        ms.find((m) => m.grace);
+      for (const m of ms) {
         m.shown = m === winner;
         m.content.visible = m.shown;
       }
+    }
+
+    function pauseIfConfigured(member) {
+      if (member.config.onLost === "pause") member.videos.forEach((v) => v.pause());
     }
 
     for (const triggerConfig of triggers) {
@@ -104,30 +115,70 @@ async function startExperience() {
       allUpdaters.push(...updaters);
       allMixers.push(...mixers);
 
-      const member = { content, found: false, shown: false };
+      const member = {
+        anchor,
+        content,
+        videos,
+        config: triggerConfig,
+        graceMs: triggerConfig.lostGraceMs ?? 0,
+        live: false, // MindAR is tracking this image right now
+        grace: false, // tracking just dropped; content is held frozen for graceMs
+        graceUntil: 0,
+        lastMatrix: new THREE.Matrix4(),
+        shown: false,
+      };
+      members.push(member);
       if (triggerConfig.group) {
         (groups[triggerConfig.group] ??= []).push(member);
         content.visible = false;
       }
 
       anchor.onTargetFound = () => {
-        if (triggerConfig.group) {
-          member.found = true;
-          refreshGroup(triggerConfig.group);
-        }
+        member.live = true;
+        member.grace = false;
+        if (triggerConfig.group) refreshGroup(triggerConfig.group);
         if (triggerConfig.onFound === "play") {
           videos.forEach((v) => v.play().catch(() => {}));
         }
       };
       anchor.onTargetLost = () => {
-        if (triggerConfig.group) {
-          member.found = false;
-          refreshGroup(triggerConfig.group);
+        member.live = false;
+        if (member.graceMs > 0) {
+          member.grace = true;
+          member.graceUntil = performance.now() + member.graceMs;
+        } else {
+          pauseIfConfigured(member);
         }
-        if (triggerConfig.onLost === "pause") {
-          videos.forEach((v) => v.pause());
-        }
+        if (triggerConfig.group) refreshGroup(triggerConfig.group);
       };
+    }
+
+    // Lost-tracking grace period (`lostGraceMs` in config.js, off by default).
+    // MindAR hides an anchor's content the instant tracking drops and resets
+    // its pose, and an image with few trackable features (like the text
+    // panel) drops tracking for a frame or two constantly even when it's
+    // still in view - which reads as the content flickering away. For
+    // members with a grace period, remember the last live pose each frame,
+    // and for graceMs after a loss keep showing the content frozen at that
+    // pose; if tracking comes back in time (onTargetFound) MindAR takes over
+    // again, otherwise it disappears as normal once the time is up.
+    function updateGrace() {
+      const now = performance.now();
+      for (const m of members) {
+        if (m.live) {
+          if (m.graceMs > 0) m.lastMatrix.copy(m.anchor.group.matrix);
+        } else if (m.grace) {
+          if (now < m.graceUntil) {
+            m.anchor.group.visible = true;
+            m.anchor.group.matrix.copy(m.lastMatrix);
+          } else {
+            m.grace = false;
+            m.anchor.group.visible = false;
+            pauseIfConfigured(m);
+            if (m.config.group) refreshGroup(m.config.group);
+          }
+        }
+      }
     }
 
     startScreen.classList.add("hidden");
@@ -139,6 +190,7 @@ async function startExperience() {
       const delta = clock.getDelta();
       allUpdaters.forEach((update) => update(elapsed));
       allMixers.forEach((mixer) => mixer.update(delta));
+      updateGrace();
       renderer.render(scene, camera);
     });
   } catch (err) {
