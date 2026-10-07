@@ -10,18 +10,18 @@ install, works in iOS Safari and Android Chrome, fully static, no backend.
 
 The app has **2 experiences** across **4 trigger images**, all real content:
 the yellow poster (video overlay) and the "What Luck / Luka Or" text panel
-(3D coin rain), where three images of the same print - one clean/original and
-two real wall photos - all lead to the same coin rain, so it works under
-different lighting. The earlier placeholder triggers (spinning primitive,
-second coin rain, fish model on a generated image) were removed; see git tag
+(3D coin rain), where three real photos of the same print on the gallery wall
+all lead to the same coin rain, so it works under different lighting. The
+earlier placeholder triggers (spinning primitive, second coin rain, fish model
+on a generated image) were removed; see git tag
 `checkpoint-before-placeholder-removal` for the last state that had them.
 
 | Trigger | Trigger image | Content type | Files |
 | --- | --- | --- | --- |
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
-| `trigger-03` | `what_luck_text_trigger.jpg` (real) | Rain of eye coins (3D) | `assets/models/flateye.glb` |
-| `trigger-03b` | `what_luck_text_trigger_photo1.jpg` (real, wall photo) | Same coin rain as `trigger-03` (same `group`, only one shows at a time) | `assets/models/flateye.glb` |
-| `trigger-03c` | `what_luck_text_trigger_photo2.jpg` (real, higher-res wall photo) | Same coin rain, same `group` | `assets/models/flateye.glb` |
+| `trigger-02a` | `what_luck_text_trigger_photo1.jpg` (real wall photo) | Rain of eye coins (3D); all three share `group: "text-panel"`, only one shows at a time | `assets/models/flateye.glb` |
+| `trigger-02b` | `what_luck_text_trigger_photo2.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
+| `trigger-02c` | `what_luck_text_trigger_photo3.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
 
 `trigger-01` now uses a real exhibition image and real video content, no
 longer generated placeholders — see "Preparing real trigger images" below
@@ -180,7 +180,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      each keeping its own fixed starting phase so they wrap independently
      rather than in lockstep; `fallSpeedVariance` randomizes each instance's
      rate too, so they don't all move at the same speed either. (No trigger
-     uses this right now - `trigger-03` used it for a flat "rain of eyes"
+     uses this right now - an earlier trigger used it for a flat "rain of eyes"
      before switching to the 3D coins below; still fully supported.)
    - `{ type: "mesh-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance, flipSpeed, flipSpeedVariance, emissiveBoost }` —
      the 3D counterpart to `"sprite-rain"`: same box/grid/jitter/fall
@@ -195,7 +195,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      continuously flips/tumbles around its OWN randomly chosen axis
      (`flipSpeed` turns/sec, `flipSpeedVariance`) rather than a shared axis —
      a shared axis/speed for every instance is what makes procedural
-     animation read as robotic or copy-pasted. `trigger-03` and `trigger-04` use this for a
+     animation read as robotic or copy-pasted. `trigger-02a`/`02b`/`02c` use this for a
      "rain of coins" effect (a flat, coin-shaped eye model that tumbles like
      a flipped coin while it falls). `emissiveBoost` (default 0.9) blends the
      model's own texture in as emissive light so it stays evenly bright
@@ -295,7 +295,7 @@ found) - without that, near-identical variants matching together would each
 draw their own overlapping copy of the content. Append new images at the END
 of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
-count modest. Currently: `trigger-03`, `trigger-03b` and `trigger-03c` share `text-panel`.
+count modest. Currently: `trigger-02a`, `02b` and `02c` share `text-panel`.
 
 ## Preparing real trigger images
 
@@ -347,7 +347,7 @@ From the brief — worth re-reading before printing anything:
 - Check the result with `npx @gltf-transform/cli inspect your-model.glb` —
   it prints triangle count, texture sizes, and material/animation info
   without needing to open it in a 3D app.
-- Same story for `trigger-04`'s `assets/models/flateye.glb`: came in at
+- Same story for the text-panel triggers' `assets/models/flateye.glb`: came in at
   **1.95M triangles / 55.6MB**, decimated to **~39k triangles / 314KB**
   (`--simplify-ratio 0.02 --texture-size 512`, otherwise the same
   gltf-transform command as above). This one is instanced dozens of times at

@@ -116,49 +116,8 @@ export const triggers = [
     onLost: "pause",
   },
   {
-    id: "trigger-03",
+    id: "trigger-02a",
     targetIndex: 1,
-    label: "Rain of eye coins (3D) on the Hamsa text panel",
-    // `group`: triggers sharing a group name (several images of the SAME
-    // print under different lighting, all leading to the same content) never
-    // show at the same time - see main.js. Without it, two similar variants
-    // matching at once would each draw their own overlapping rain.
-    group: "text-panel",
-    content: [
-      {
-        // Real trigger image: the "What Luck / Luka Or" exhibition text
-        // panel (assets/targets-source/what_luck_text_trigger.jpg, 542x769,
-        // compiled into targets.mind at index 1). 3D coin rain (flateye.glb,
-        // tumbling on random axes while falling).
-        //
-        // The box is 3x the image's own width (centered, 1x extra on each
-        // side) and 3x its own HEIGHT - this image is portrait (769/542 =
-        // 1.419 taller than wide, and MindAR always normalizes image width
-        // to 1 unit), so boxHeight = 3 * 1.419 = 4.26, not 3. `rows` scales
-        // with it (7 rows over 4.26 ~ the same density as 5 rows over 3).
-        type: "mesh-rain",
-        src: "assets/models/flateye.glb",
-        boxWidth: 3,
-        boxHeight: 4.26,
-        boxDepth: 0.8,
-        rows: 7,
-        cols: 6,
-        depthLayers: 2,
-        minScale: 0.14,
-        maxScale: 0.3,
-        shadow: true,
-        shadowOpacity: 0.3,
-        shadowOffset: [0.02, -0.025],
-        fallSpeed: 0.4,
-        fallSpeedVariance: 0.25,
-        flipSpeed: 0.5,
-        flipSpeedVariance: 0.5,
-      },
-    ],
-  },
-  {
-    id: "trigger-03b",
-    targetIndex: 2,
     label: "Hamsa text panel - wall photo variant (same coin rain)",
     // `group`: triggers sharing a group name (several images of the SAME
     // print under different lighting, all leading to the same content) never
@@ -170,7 +129,7 @@ export const triggers = [
         // Second image for the same print: a real photo of the printed
         // panel on the gallery wall (assets/targets-source/
         // what_luck_text_trigger_photo1.jpg, 526x745, cropped to the print's
-        // edge; compiled at index 2). Same content as trigger-03; `group` keeps only one shown.
+        // edge; compiled at index 1). Same content as the other text variants; `group` keeps only one shown.
         // boxHeight = 3 * 745/526 = 4.25 for this image's own aspect.
         type: "mesh-rain",
         src: "assets/models/flateye.glb",
@@ -193,8 +152,8 @@ export const triggers = [
     ],
   },
   {
-    id: "trigger-03c",
-    targetIndex: 3,
+    id: "trigger-02b",
+    targetIndex: 2,
     label: "Hamsa text panel - higher-resolution wall photo variant (same coin rain)",
     // `group`: triggers sharing a group name (several images of the SAME
     // print under different lighting, all leading to the same content) never
@@ -206,8 +165,44 @@ export const triggers = [
         // Third image for the same print: a higher-resolution photo of the
         // printed panel on the gallery wall (assets/targets-source/
         // what_luck_text_trigger_photo2.jpg, scaled from 1500x2000 to
-        // 900x1200 to keep targets.mind's size down; compiled at index 3).
-        // Same content as trigger-03; `group` keeps only one shown.
+        // 900x1200 to keep targets.mind's size down; compiled at index 2).
+        // Same content as the other text variants; `group` keeps only one shown.
+        // boxHeight = 3 * 1200/900 = 4.0 for this image's own aspect.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02c",
+    targetIndex: 3,
+    label: "Hamsa text panel - second high-resolution wall photo variant (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    content: [
+      {
+        // Another high-resolution photo of the printed panel on the gallery
+        // wall (assets/targets-source/what_luck_text_trigger_photo3.jpg,
+        // scaled from 1500x2000 to 900x1200; compiled at index 3). Same
+        // content as the other text variants; `group` keeps only one shown.
         // boxHeight = 3 * 1200/900 = 4.0 for this image's own aspect.
         type: "mesh-rain",
         src: "assets/models/flateye.glb",
