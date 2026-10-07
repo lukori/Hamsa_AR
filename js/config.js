@@ -134,38 +134,36 @@ export const triggers = [
   {
     id: "trigger-03",
     targetIndex: 2,
-    label: "Rain of eyes",
+    label: "Rain of eye coins (3D) on the Hamsa text panel",
     content: [
       {
-        // A field of the same eye icon (assets/textures/eye.png) at varying
-        // sizes and 3D depths, filling an imaginary box 3x the trigger
-        // image's own width (centered - 1x extra width on each side) and
-        // 3x its height, with the image as the box's back wall - eyes rain
-        // down through and around the printed image, extending well beyond
-        // its physical bounds on every side. Arranged on a jittered grid
-        // (rows x cols x depthLayers), not pure random, so it reads as
-        // organized rather than messy; `cols` scaled up 3x along with
-        // boxWidth to keep the same density as before, rather than
-        // spreading the original count thinner across more space. Each eye
-        // gets a soft offset shadow decal on the wall behind it, and
-        // continuously falls and wraps back to the top (fallSpeed), each at
-        // its own independently randomized rate (fallSpeedVariance) so they
-        // don't move in lockstep.
-        type: "sprite-rain",
-        src: "assets/textures/eye.png",
+        // Real trigger image: the "What Luck / Luka Or" exhibition text
+        // panel (assets/targets-source/what_luck_text_trigger.jpg, 542x769,
+        // compiled into targets.mind at index 2). Same 3D coin rain as
+        // trigger-04 (flateye.glb, tumbling on random axes while falling).
+        //
+        // The box is 3x the image's own width (centered, 1x extra on each
+        // side) and 3x its own HEIGHT - this image is portrait (769/542 =
+        // 1.419 taller than wide, and MindAR always normalizes image width
+        // to 1 unit), so boxHeight = 3 * 1.419 = 4.26, not 3. `rows` scales
+        // with it (7 rows over 4.26 ~ the same density as 5 rows over 3).
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
         boxWidth: 3,
-        boxHeight: 3,
+        boxHeight: 4.26,
         boxDepth: 0.8,
         rows: 7,
-        cols: 9,
+        cols: 6,
         depthLayers: 2,
-        minScale: 0.09,
-        maxScale: 0.22,
+        minScale: 0.14,
+        maxScale: 0.3,
         shadow: true,
         shadowOpacity: 0.3,
         shadowOffset: [0.02, -0.025],
-        fallSpeed: 0.5,
+        fallSpeed: 0.4,
         fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
       },
     ],
   },
@@ -175,7 +173,7 @@ export const triggers = [
     label: "Rain of eye coins (3D)",
     content: [
       {
-        // Same "rain" idea as trigger-03, but each falling instance is a
+        // Same "rain" idea as sprite-rain (see sceneBuilder.js), but each falling instance is a
         // real 3D model (a flat, coin-shaped eye illustration - hence
         // "flateye") instead of a flat sprite, and on top of falling it
         // continuously tumbles/flips end over end like a flipped coin -

@@ -18,7 +18,7 @@ exhibition content — swap in the real trigger images and media before the show
 | --- | --- | --- | --- |
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
 | `trigger-02` | `trigger-02.png` (placeholder) | 3D model + animation (placeholder: spinning primitive) | — |
-| `trigger-03` | `trigger-03.png` (placeholder) | Rain of eyes (real content, placeholder trigger image) | `assets/textures/eye.png` |
+| `trigger-03` | `what_luck_text_trigger.jpg` (real) | Rain of eye coins (3D, same as `trigger-04`) | `assets/models/flateye.glb` |
 | `trigger-04` | `trigger-04.png` (placeholder) | Rain of eye coins (real content, 3D, placeholder trigger image) | `assets/models/flateye.glb` |
 | `trigger-05` | `trigger-05.png` (placeholder) | Real GLB model | `assets/models/fisher-fish.glb` |
 
@@ -178,8 +178,9 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      continuously fall and wrap back to the top once it passes the bottom,
      each keeping its own fixed starting phase so they wrap independently
      rather than in lockstep; `fallSpeedVariance` randomizes each instance's
-     rate too, so they don't all move at the same speed either. `trigger-03`
-     uses this for a continuously-falling "rain of eyes" effect.
+     rate too, so they don't all move at the same speed either. (No trigger
+     uses this right now - `trigger-03` used it for a flat "rain of eyes"
+     before switching to the 3D coins below; still fully supported.)
    - `{ type: "mesh-rain", src, boxWidth, boxHeight, boxDepth, rows, cols, depthLayers, jitter, minScale, maxScale, shadow, shadowOpacity, shadowOffset, fallSpeed, fallSpeedVariance, flipSpeed, flipSpeedVariance, emissiveBoost }` —
      the 3D counterpart to `"sprite-rain"`: same box/grid/jitter/fall
      placement, but each instance is a real GLB model instead of a flat
@@ -193,7 +194,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      continuously flips/tumbles around its OWN randomly chosen axis
      (`flipSpeed` turns/sec, `flipSpeedVariance`) rather than a shared axis —
      a shared axis/speed for every instance is what makes procedural
-     animation read as robotic or copy-pasted. `trigger-04` uses this for a
+     animation read as robotic or copy-pasted. `trigger-03` and `trigger-04` use this for a
      "rain of coins" effect (a flat, coin-shaped eye model that tumbles like
      a flipped coin while it falls). `emissiveBoost` (default 0.9) blends the
      model's own texture in as emissive light so it stays evenly bright
