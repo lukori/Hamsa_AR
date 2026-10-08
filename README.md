@@ -8,10 +8,11 @@ install, works in iOS Safari and Android Chrome, fully static, no backend.
 
 ## Current status
 
-The app has **2 experiences** across **4 trigger images**, all real content:
+The app has **2 experiences** across **6 trigger images**, all real content:
 the yellow poster (video overlay) and the "What Luck / Luka Or" text panel
-(3D coin rain), where three real photos of the same print on the gallery wall
-all lead to the same coin rain, so it works under different lighting. The
+(3D coin rain), where four real photos of the same print on the gallery wall
+plus a crop of its title block all lead to the same coin rain, so it works
+under different lighting and distances. The
 earlier placeholder triggers (spinning primitive, second coin rain, fish model
 on a generated image) were removed; see git tag
 `checkpoint-before-placeholder-removal` for the last state that had them.
@@ -22,6 +23,8 @@ on a generated image) were removed; see git tag
 | `trigger-02a` | `what_luck_text_trigger_photo1.jpg` (real wall photo) | Rain of eye coins (3D); all three share `group: "text-panel"`, only one shows at a time | `assets/models/flateye.glb` |
 | `trigger-02b` | `what_luck_text_trigger_photo2.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
 | `trigger-02c` | `what_luck_text_trigger_photo3.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
+| `trigger-02d` | `what_luck_text_trigger_gallery.jpg` (photo taken in the gallery, cropped to the print's edge) | Same coin rain | `assets/models/flateye.glb` |
+| `trigger-02-title` | `what_luck_title_crop.jpg` (title block only, cut from the gallery photo) | Same coin rain, re-centred on the whole print via `contentTransform` | `assets/models/flateye.glb` |
 
 `trigger-01` now uses a real exhibition image and real video content, no
 longer generated placeholders — see "Preparing real trigger images" below
@@ -295,7 +298,7 @@ found) - without that, near-identical variants matching together would each
 draw their own overlapping copy of the content. Append new images at the END
 of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
-count modest. Currently: `trigger-02a`, `02b` and `02c` share `text-panel`.
+count modest. Currently: `trigger-02a`-`02d` and `trigger-02-title` share `text-panel`.
 
 ## Holding content through brief tracking drops (`lostGraceMs`)
 
@@ -303,7 +306,7 @@ MindAR hides an image's content the instant tracking drops. An image with few
 trackable features (like the text panel: ~20 tracking points vs ~100 for the
 yellow poster) loses tracking for a frame or two even while it's in view,
 which reads as the content flickering away. A trigger can opt in to
-`lostGraceMs: 500` in `config.js`: on a loss, the content stays visible,
+`lostGraceMs: 500` in `config.js` (**currently off everywhere** - it was tried on the text-panel triggers, see git tag `checkpoint-grace-hold-500ms`, then removed again for testing): on a loss, the content stays visible,
 frozen at the last known pose, for that many milliseconds; if the image is
 re-found in time it carries on, otherwise it disappears as usual. Default is 0
 (off, identical to before) - the yellow poster doesn't use it. If the held
@@ -313,6 +316,26 @@ too brief, tune the number; around 300-1000 is the sensible range. With
 that's only being held. (MindAR has its own global `missTolerance`, but it
 applies to every target at once and isn't used here so the yellow poster stays
 exactly as it was.)
+
+## Using a crop of the print as a trigger (`contentTransform`)
+
+A part of a print with larger, more distinctive shapes can track far better
+than the whole print: the title block of the text panel has ~82 tracking
+points against ~20 for the full panel (measured with MindAR's own compiler -
+counts are a proxy, not proof of on-device behavior). MindAR anchors content to
+the trigger image's own centre and treats the image's width as 1 unit, so for a
+crop, content authored in whole-print units must be moved and scaled. Set
+`contentTransform: { position: [x, y, 0], scale }` on the trigger in
+`config.js`: `scale` = (print width in px) / (crop width in px), and `position`
+= the offset from the crop's centre to the print's centre, in units of the
+crop's width (y up). `trigger-02-title` is the worked example (crop at
+x 125-805, y 90-445 of the 900x1276 gallery photo). To verify an offset,
+render the full photo and the crop together at the computed positions: the
+text should coincide exactly, with no double image.
+
+When photographing a print on a wall, **crop to the paper's own edge**: a white
+print on a white wall has an almost invisible edge, but boosting the contrast
+(histogram equalization) makes it obvious.
 
 ## Preparing real trigger images
 

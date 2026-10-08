@@ -15,6 +15,15 @@
 // time it carries on, otherwise it disappears. For images that are hard to
 // lock onto (few trackable features) and flicker out for a frame or two.
 // Leave it off for images that track reliably (e.g. the yellow poster).
+// (Currently unused: it was tried at 500ms on the text-panel triggers, see git
+// tag checkpoint-grace-hold-500ms, then switched off for testing.)
+//
+// Optional per-trigger `contentTransform: { position: [x, y, z], scale }`: for
+// an image that is only a CROP of the real print. MindAR anchors content to
+// the trigger image's own centre, with the image's width = 1 unit - so for a
+// crop, content authored in whole-print units (width = 1) needs `scale` =
+// printWidthPx / cropWidthPx and a `position` offset (in crop-width units, y
+// up) from the crop's centre to the print's centre.
 //
 // Content item types supported by sceneBuilder.js:
 //   "backdrop"     - an unlit, solid-color plane behind other content so it
@@ -131,7 +140,6 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 500,
     content: [
       {
         // Second image for the same print: a real photo of the printed
@@ -168,7 +176,6 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 500,
     content: [
       {
         // Third image for the same print: a higher-resolution photo of the
@@ -206,7 +213,6 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 500,
     content: [
       {
         // Another high-resolution photo of the printed panel on the gallery
@@ -218,6 +224,85 @@ export const triggers = [
         src: "assets/models/flateye.glb",
         boxWidth: 3,
         boxHeight: 4,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02d",
+    targetIndex: 4,
+    label: "Hamsa text panel - photo taken in the gallery (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    content: [
+      {
+        // Photo taken in the gallery itself (assets/targets-source/
+        // what_luck_text_trigger_gallery.jpg): the original 1500x2000 phone
+        // photo showed wall around the paper, so it was cropped to the
+        // print's own edge (found by contrast-boosting to reveal the paper
+        // edge: x 156-1440, y 136-1956) and scaled to 900x1276; compiled at
+        // index 4. boxHeight = 3 * 1276/900 = 4.25 for this image's aspect.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4.25,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02-title",
+    targetIndex: 5,
+    label: "Hamsa text panel - title block only (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    contentTransform: { position: [-0.0221, -0.5449, 0], scale: 1.3235 },
+    content: [
+      {
+        // Only the TITLE BLOCK of the print (assets/targets-source/
+        // what_luck_title_crop.jpg: x 125-805, y 90-445 of the 900x1276
+        // gallery photo above; compiled at index 5). The title's large,
+        // distinctive letters give ~4x the tracking points of the full panel
+        // (82 vs ~20), so this locks on and holds better, and also works when
+        // standing close enough that only the title is in frame. The
+        // contentTransform re-centres the rain on the WHOLE print: scale =
+        // 900/680, offset from the crop's centre (465, 267.5) to the print's
+        // centre (450, 638), in crop-width (680px) units, y up.
+        // boxHeight 4.25 as for the full-panel gallery photo.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4.25,
         boxDepth: 0.8,
         rows: 7,
         cols: 6,
