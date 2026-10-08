@@ -23,8 +23,8 @@ export const DEFAULT_PARAMS = {
   shake: 2.2, // how strongly head acceleration throws the pupil (1 = physically accurate, more = more energetic)
   gravity: 1100, // mm/s^2 pulling the pupil toward the bottom of the dome (real gravity is 9810: too fast to see)
   bounce: 0.8, // share of its speed the pupil keeps when it hits the SIDE of the dome's rim (0 = dead stop, 1 = perfectly bouncy)
-  bounceY: 0.3, // the same for the TOP and BOTTOM of the rim (screen-vertical impacts); in between, it blends
-  shakeY: 1, // how much of the head's UP/DOWN acceleration reaches the pupil (1 = same as sideways; below 1 it also weakens circular spin, which needs a full vertical push to get over the top)
+  bounceY: 0.65, // the same for the TOP and BOTTOM of the rim (screen-vertical impacts); in between, it blends (was 0.3; 0.65 is the tuned value)
+  shakeY: 0.2, // how much of the head's UP/DOWN acceleration reaches the pupil (1 = same as sideways). 0.2 is the tuned value: nodding barely moves the pupil, but circular head motion no longer spins it (it needs a vertical push to get over the top of the rim) - raise it toward 1 to get the spin back
   gaze: 0, // 0..1: how much the pupil is ALSO pulled toward where the person looks (0 = pure physics)
 };
 
