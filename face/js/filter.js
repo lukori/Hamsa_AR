@@ -18,9 +18,9 @@ export const DEFAULT_PARAMS = {
   gainY: 2.2, // vertical
 };
 
-const SHADOW_OPACITY = 0.21; // how dark the soft shadow is
+const SHADOW_OPACITY = 0.19; // how dark the soft shadow is (was 0.42; halved, then 10% less)
 const SHADOW_BLUR = 10; // how soft (VSM blur radius)
-const SHADOW_GAP = 3.0; // cm between the object and the surface it shadows
+const SHADOW_GAP = 2.25; // cm between the object and the surface it shadows (the shadow's offset/size scales with it; was 3.0, now 25% less)
 const LIGHT_OFFSET = new THREE.Vector3(18, 30, 26); // key light relative to the faces, cm (above and to the side)
 const HOLD_MS = 350; // keep showing the last pose this long after the face is lost
 const RELEASE_MS = 900; // after this long without the face, its slot (and colour) is freed
@@ -28,7 +28,8 @@ const MATCH_MAX_CM = 35; // a detection this close to a slot's last position is 
 const CATCHER_FOLLOW = 0.35; // how much of the head's rotation the shadow plane follows (0 = flat wall behind, 1 = turns with the head)
 const POSE_TAU = 0.045; // pose smoothing time constant (s); lower = snappier
 const SPRING_K = 240; // pupil spring stiffness
-const SPRING_DAMPING = 0.62; // damping ratio (<1 = a little googly wobble)
+const SPRING_DAMPING = 0.38; // damping ratio: lower = bouncier (about 27% overshoot, then settles in ~0.7s)
+const WALL_BOUNCE = 0.5; // share of its speed the pupil keeps when it hits the rim of the dome (0 = dead stop, 1 = perfectly bouncy)
 const DEADZONE = 0.03;
 const BLINK_HOLD = 0.55; // while blinking, gaze readings are unreliable: freeze
 
@@ -209,13 +210,15 @@ function createSlot(index, eyeFactory, p) {
       pupil.y += pupil.vy * h;
       const r = Math.hypot(pupil.x, pupil.y);
       if (r > PUPIL_TRAVEL) {
-        const f = PUPIL_TRAVEL / r;
-        pupil.x *= f;
-        pupil.y *= f;
-        const radial = (pupil.vx * pupil.x + pupil.vy * pupil.y) / PUPIL_TRAVEL ** 2;
-        if (radial > 0) {
-          pupil.vx -= radial * pupil.x;
-          pupil.vy -= radial * pupil.y;
+        // Hit the rim: put it back on the edge and bounce the outward part of its velocity.
+        const ux = pupil.x / r;
+        const uy = pupil.y / r;
+        pupil.x = ux * PUPIL_TRAVEL;
+        pupil.y = uy * PUPIL_TRAVEL;
+        const outward = pupil.vx * ux + pupil.vy * uy;
+        if (outward > 0) {
+          pupil.vx -= (1 + WALL_BOUNCE) * outward * ux;
+          pupil.vy -= (1 + WALL_BOUNCE) * outward * uy;
         }
       }
     }

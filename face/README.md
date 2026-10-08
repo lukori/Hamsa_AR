@@ -29,8 +29,8 @@ folder - nothing outside `/face/` is used or changed.
   a light grey so it isn't clipped to pure white.
 - **Soft shadow** (`js/filter.js`, `js/scene.js`): one light that follows the
   head(s) from above and to the side, and an invisible plane a few cm behind each
-  object that only shows shadows (`SHADOW_OPACITY` 0.21, `SHADOW_BLUR`,
-  `SHADOW_GAP`, `LIGHT_OFFSET`), so the object looks like it floats just above
+  object that only shows shadows (`SHADOW_OPACITY` 0.19, `SHADOW_BLUR`,
+  `SHADOW_GAP` 2.25cm, `LIGHT_OFFSET`), so the object looks like it floats just above
   the face. The plane follows the head's position but only 35% of its rotation
   (`CATCHER_FOLLOW`), otherwise a strongly turned head stretches the shadow into
   a long streak.
@@ -50,8 +50,9 @@ folder - nothing outside `/face/` is used or changed.
 - **Placement and gaze** (`js/filter.js`): the object is attached to the head
   pose, smoothed, and sized to cover the face. Gaze = left/right and up/down
   blendshapes combined into a direction, amplified (`gain`), and drives the
-  pupil through a slightly under-damped spring so it wobbles a little like a
-  real googly eye. While blinking the gaze is frozen (readings are unreliable).
+  pupil through an under-damped spring (`SPRING_DAMPING` 0.38: it overshoots
+  its target by about a quarter and settles back) and it bounces off the rim of
+  the dome (`WALL_BOUNCE`), like a real googly eye. While blinking the gaze is frozen (readings are unreliable).
 - **The page** (`index.html`, `js/main.js`): start button (required for the
   camera on iPhone), front camera, mirrored selfie view (video and 3D canvas are
   flipped together with CSS), render loop.
