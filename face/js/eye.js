@@ -14,6 +14,7 @@ const DOME_HEIGHT = 4.5; // estimated from the side-view photo
 const EYE_WHITE_R = 24.4; // the white backing disc inside the dome
 const PUPIL_R = 16; // measured from the front photo (~32mm black disc)
 const PUPIL_CLEARANCE = 0.3;
+const PLATE_COLOR = 0x87ceeb; // CSS "skyblue" // sky blue (hand + ring); lit it reads as ~#87CEEB
 
 export const PUPIL_TRAVEL = EYE_WHITE_R - PUPIL_R - PUPIL_CLEARANCE;
 
@@ -28,14 +29,17 @@ export async function createEye(stlUrl) {
   const plate = new THREE.Mesh(
     plateGeometry,
     new THREE.MeshPhysicalMaterial({
-      color: 0xeceae6,
-      roughness: 0.45,
+      color: PLATE_COLOR,
+      emissive: PLATE_COLOR, // a flat lift so the blue stays clean and light in shade
+      emissiveIntensity: 0.32,
+      roughness: 0.62,
       metalness: 0,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.4,
-      envMapIntensity: 0.7,
+      clearcoat: 0.04,
+      clearcoatRoughness: 0.6,
+      envMapIntensity: 0.45,
     })
   );
+  plate.castShadow = true; // its shadow falls on the shadow catcher behind it (filter.js)
   root.add(plate);
 
   const eyeWhite = new THREE.Mesh(
@@ -47,7 +51,7 @@ export async function createEye(stlUrl) {
 
   const pupil = new THREE.Mesh(
     new THREE.CircleGeometry(PUPIL_R, 64),
-    new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.22, metalness: 0.1 })
+    new THREE.MeshPhysicalMaterial({ color: 0x050505, roughness: 0.55, metalness: 0, specularIntensity: 0.25, envMapIntensity: 0.15 })
   );
   pupil.position.z = 0.35;
   root.add(pupil);
@@ -67,7 +71,7 @@ export async function createEye(stlUrl) {
       color: 0x000000,
       roughness: 0.04,
       metalness: 0,
-      envMapIntensity: 1.4,
+      envMapIntensity: 0.22,
       transparent: true,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,

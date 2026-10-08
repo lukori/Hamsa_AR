@@ -10,13 +10,17 @@ import { PUPIL_TRAVEL } from "./eye.js";
 // CSS, so the 3D scene is built in unmirrored camera space.
 
 export const DEFAULT_PARAMS = {
-  size: 2.7, // eye object size relative to the real piece (1 = 6.4cm wide)
-  dy: -2.8, // cm up from the face model's origin
+  size: 2.9, // eye object size relative to the real piece (1 = 6.4cm wide)
+  dy: -0.55, // cm up from the face model's origin
   dz: 8.5, // cm forward of the face model's origin (nose tip is ~7.5)
   gain: 2.2, // horizontal gaze amplification (blendshape 0..1 -> -1..1)
   gainY: 2.2, // vertical
 };
 
+const SHADOW_OPACITY = 0.42; // how dark the soft shadow is
+const SHADOW_BLUR = 10; // how soft (VSM blur radius)
+const SHADOW_GAP = 3.4; // cm between the object and the surface it shadows
+const LIGHT_OFFSET = new THREE.Vector3(14, 30, 30); // key light relative to the head, cm (above-front)
 const HOLD_MS = 350; // keep showing the last pose this long after the face is lost
 const POSE_TAU = 0.045; // pose smoothing time constant (s); lower = snappier
 const SPRING_K = 240; // pupil spring stiffness
@@ -40,6 +44,26 @@ export function createFilter(eye, params = {}) {
   const placer = new THREE.Group(); // offset + size relative to the head
   anchor.add(placer);
   placer.add(eye.root);
+
+  // Soft shadow of the object on the face/background behind it: an invisible
+  // plane (it only shows shadows) a little behind the object, and a light that
+  // follows the head from above-front so the shadow falls below the object.
+  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: SHADOW_OPACITY }));
+  catcher.receiveShadow = true;
+  anchor.add(catcher);
+  const lightRig = new THREE.Group();
+  const key = new THREE.DirectionalLight(0xffffff, 1.05);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.left = key.shadow.camera.bottom = -24;
+  key.shadow.camera.right = key.shadow.camera.top = 24;
+  key.shadow.camera.near = 1;
+  key.shadow.camera.far = 150;
+  key.shadow.radius = SHADOW_BLUR;
+  key.shadow.blurSamples = 16;
+  key.shadow.bias = -0.0004;
+  key.position.copy(LIGHT_OFFSET);
+  lightRig.add(key, key.target);
 
   const pos = new THREE.Vector3();
   const quat = new THREE.Quaternion();
@@ -69,6 +93,7 @@ export function createFilter(eye, params = {}) {
   };
 
   function applyParams() {
+    catcher.position.set(0, p.dy, p.dz - SHADOW_GAP);
     placer.position.set(0, p.dy, p.dz);
     placer.scale.setScalar(0.1 * p.size); // eye space is mm, face space is cm
   }
@@ -148,7 +173,11 @@ export function createFilter(eye, params = {}) {
       scl.lerp(pendingPose.s, k);
     }
     anchor.visible = havePose && nowMs - lastSeen < HOLD_MS;
-    if (anchor.visible) anchor.matrix.compose(pos, quat, scl);
+    lightRig.visible = anchor.visible;
+    if (anchor.visible) {
+      anchor.matrix.compose(pos, quat, scl);
+      lightRig.position.copy(pos); // the light follows the head's position, not its rotation
+    }
 
     // Pupil: damped spring toward the gaze target, kept inside the dome.
     const damping = 2 * SPRING_DAMPING * Math.sqrt(SPRING_K);
@@ -176,6 +205,9 @@ export function createFilter(eye, params = {}) {
 
   return {
     anchor,
+    lightRig,
+    catcher,
+    key,
     params: p,
     state,
     setResult,

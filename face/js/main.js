@@ -1,14 +1,14 @@
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createEye } from "./eye.js?v=1";
-import { createFilter } from "./filter.js?v=1";
+import { createEye } from "./eye.js?v=2";
+import { createFilter } from "./filter.js?v=2";
+import { createScene } from "./scene.js?v=1";
 
 // Pinned: the MediaPipe Tasks Vision bundle + its WASM, and the face model.
 const MP_VERSION = "0.10.35";
 const MP_BUNDLE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/vision_bundle.mjs`;
 const MP_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+// Hosted in this folder (a copy of Google's float16 face_landmarker.task, 3.7MB).
+const MODEL_URL = "assets/face_landmarker.task?v=1";
 // MediaPipe computes the head pose assuming a pinhole camera with this vertical
 // field of view, so the 3D camera must use the same one to line up.
 const CAMERA_FOV = 63;
@@ -83,17 +83,11 @@ async function startExperience() {
     ]);
 
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setClearColor(0x000000, 0);
-    const scene = new THREE.Scene();
-    scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 0.35));
-    const key = new THREE.DirectionalLight(0xffffff, 0.7);
-    key.position.set(0.3, 0.8, 1);
-    scene.add(key);
+    const scene = createScene(renderer);
 
     const camera = new THREE.PerspectiveCamera(CAMERA_FOV, video.videoWidth / video.videoHeight, 1, 1000);
     const filter = createFilter(eye, params);
-    scene.add(filter.anchor);
+    scene.add(filter.anchor, filter.lightRig);
 
     function layout() {
       const vw = video.videoWidth;
