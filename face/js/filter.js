@@ -5,6 +5,12 @@ import { PUPIL_TRAVEL, FIRST_COLOR, OTHER_COLORS } from "./eye.js?v=4";
 // head pose an eye object is attached to and (b) where the pupil sits inside
 // the dome. Up to `maxFaces` faces at once, each with its own eye object.
 //
+// The pupil behaves like the loose disc in a real googly eye (but more
+// energetic): gravity pulls it to the lowest point of the dome, head movement
+// throws it around (shake the head and it bounces off the rim; move the head in
+// circles and it orbits along the rim), and it can optionally also be pulled
+// toward where the person is looking (`gaze`, off by default).
+//
 // Conventions (MediaPipe canonical face space, units cm): +X = image right in
 // the UNMIRRORED camera frame (the subject's left), +Y up, +Z toward the
 // camera. The page shows a mirrored selfie view by flipping everything with
@@ -14,8 +20,10 @@ export const DEFAULT_PARAMS = {
   size: 2.9, // eye object size relative to the real piece (1 = 6.4cm wide)
   dy: -0.55, // cm up from the face model's origin
   dz: 8.5, // cm forward of the face model's origin (nose tip is ~7.5)
-  gain: 2.2, // horizontal gaze amplification (blendshape 0..1 -> -1..1)
-  gainY: 2.2, // vertical
+  shake: 2.2, // how strongly head acceleration throws the pupil (1 = physically accurate, more = more energetic)
+  gravity: 1100, // mm/s^2 pulling the pupil toward the bottom of the dome (real gravity is 9810: too fast to see)
+  bounce: 0.8, // share of its speed the pupil keeps when it hits the rim of the dome (0 = dead stop, 1 = perfectly bouncy)
+  gaze: 0, // 0..1: how much the pupil is ALSO pulled toward where the person looks (0 = pure physics)
 };
 
 const SHADOW_OPACITY = 0.19; // how dark the soft shadow is (was 0.42; halved, then 10% less)
@@ -27,15 +35,71 @@ const RELEASE_MS = 900; // after this long without the face, its slot (and colou
 const MATCH_MAX_CM = 35; // a detection this close to a slot's last position is the same person
 const CATCHER_FOLLOW = 0.35; // how much of the head's rotation the shadow plane follows (0 = flat wall behind, 1 = turns with the head)
 const POSE_TAU = 0.045; // pose smoothing time constant (s); lower = snappier
-const SPRING_K = 240; // pupil spring stiffness
-const SPRING_DAMPING = 0.38; // damping ratio: lower = bouncier (about 27% overshoot, then settles in ~0.7s)
-const WALL_BOUNCE = 0.5; // share of its speed the pupil keeps when it hits the rim of the dome (0 = dead stop, 1 = perfectly bouncy)
+
+const PUPIL_DAMPING = 1.6; // 1/s: slow air-drag-like loss of speed (low = keeps bouncing a long time)
+const REST_SPEED = 25; // mm/s: a hit slower than this doesn't bounce (so it can come to rest on the rim)
+const ACCEL_WINDOW_S = 0.3; // head acceleration is fitted over this much recent history
+const ACCEL_MIN_SPAN_S = 0.12; // ...and needs at least this much of it
+const ACCEL_MIN_SAMPLES = 4;
+const ACCEL_MAX_CM = 3000; // cm/s^2: ignore tracking glitches beyond ~3g
+const ACCEL_DEADZONE_CM = 12; // cm/s^2 subtracted from the head's acceleration: tracking noise is ~4-9, a gentle sway ~40, so a still head leaves the pupil at rest
+const ACCEL_TAU = 0.04; // s: smooths the acceleration between detections
+const GAZE_SPRING_K = 240; // pull toward the gaze point when `gaze` is 1 (1/s^2)
+const GAZE_AMP = 2.2; // gaze blendshape (0..1) -> -1..1 of the pupil's travel
 const DEADZONE = 0.03;
 const BLINK_HOLD = 0.55; // while blinking, gaze readings are unreliable: freeze
 
 function dead(v) {
   const a = Math.abs(v);
   return a < DEADZONE ? 0 : Math.sign(v) * (a - DEADZONE);
+}
+
+// Solve the 3x3 system m * c = b (Cramer's rule); null if singular.
+function solve3(m, b) {
+  const det = (a) =>
+    a[0] * (a[4] * a[8] - a[5] * a[7]) - a[1] * (a[3] * a[8] - a[5] * a[6]) + a[2] * (a[3] * a[7] - a[4] * a[6]);
+  const d = det(m);
+  if (Math.abs(d) < 1e-30) return null;
+  const col = (k) => {
+    const a = m.slice();
+    a[k] = b[0];
+    a[k + 3] = b[1];
+    a[k + 6] = b[2];
+    return det(a) / d;
+  };
+  return [col(0), col(1), col(2)];
+}
+
+// Acceleration of a tracked point from its recent positions: fit
+// pos(s) = c0 + c1*s + c2*s^2 (s = seconds before the newest sample) by least
+// squares; the acceleration is 2*c2. Differentiating noisy positions twice
+// directly would be mostly noise; fitting over ~0.3s smooths it. Returns
+// { ax, ay } in cm/s^2, or null if there isn't enough history.
+function fitAcceleration(samples) {
+  const n = samples.length;
+  if (n < ACCEL_MIN_SAMPLES) return null;
+  const t0 = samples[n - 1].t;
+  if (t0 - samples[0].t < ACCEL_MIN_SPAN_S) return null;
+  let s1 = 0, s2 = 0, s3 = 0, s4 = 0, bx0 = 0, bx1 = 0, bx2 = 0, by0 = 0, by1 = 0, by2 = 0;
+  for (const q of samples) {
+    const s = q.t - t0;
+    const ss = s * s;
+    s1 += s;
+    s2 += ss;
+    s3 += ss * s;
+    s4 += ss * ss;
+    bx0 += q.x;
+    bx1 += q.x * s;
+    bx2 += q.x * ss;
+    by0 += q.y;
+    by1 += q.y * s;
+    by2 += q.y * ss;
+  }
+  const m = [n, s1, s2, s1, s2, s3, s2, s3, s4];
+  const cx = solve3(m, [bx0, bx1, bx2]);
+  const cy = solve3(m, [by0, by1, by2]);
+  if (!cx || !cy) return null;
+  return { ax: 2 * cx[2], ay: 2 * cy[2] };
 }
 
 // One tracked face: its head pose, its eye object, its shadow plane, its pupil.
@@ -66,18 +130,29 @@ function createSlot(index, eyeFactory, p) {
   const tmpP = new THREE.Vector3();
   const tmpQ = new THREE.Quaternion();
   const tmpS = new THREE.Vector3();
+  const tmpEye = new THREE.Vector3();
+  const invQ = new THREE.Quaternion();
+  const gLocal = new THREE.Vector3();
+  const aLocal = new THREE.Vector3();
   const euler = new THREE.Euler();
 
   const pendingPose = { p: new THREE.Vector3(), q: new THREE.Quaternion(), s: new THREE.Vector3(1, 1, 1), set: false };
   let havePose = false;
-  const target = { x: 0, y: 0 }; // pupil target, mm
+  const target = { x: 0, y: 0 }; // where the person is looking, mm (only used if p.gaze > 0)
   const pupil = { x: 0, y: 0, vx: 0, vy: 0 };
+  // Recent positions of the eye object (camera space, cm) and the acceleration
+  // fitted from them (cm/s^2, camera x/y).
+  let samples = [];
+  const accelTarget = { x: 0, y: 0 };
+  const accel = { x: 0, y: 0 };
   const state = {
     faceFound: false,
-    gx: 0,
+    gx: 0, // gaze readings, for the debug overlay (+ = subject looks right/up)
     gy: 0,
-    nx: 0,
-    ny: 0,
+    px: 0, // where the pupil is, -1..1 of its travel
+    py: 0,
+    ax: 0, // total push on the pupil in the eye's own frame, mm/s^2 (gravity + head motion)
+    ay: 0,
     blink: 0,
     yaw: 0,
     pitch: 0,
@@ -106,6 +181,11 @@ function createSlot(index, eyeFactory, p) {
   }
   applyParams();
 
+  function resetMotion() {
+    samples = [];
+    accelTarget.x = accelTarget.y = accel.x = accel.y = 0;
+  }
+
   slot.claim = (color) => {
     slot.reserved = true;
     slot.colorName = color.name;
@@ -113,6 +193,7 @@ function createSlot(index, eyeFactory, p) {
     havePose = false;
     pendingPose.set = false;
     target.x = target.y = pupil.x = pupil.y = pupil.vx = pupil.vy = 0;
+    resetMotion();
     slot.lastSeen = -Infinity;
   };
 
@@ -122,6 +203,7 @@ function createSlot(index, eyeFactory, p) {
     pendingPose.set = false;
     anchor.visible = false;
     state.faceFound = false;
+    resetMotion();
   };
 
   slot.setMissing = () => {
@@ -147,6 +229,24 @@ function createSlot(index, eyeFactory, p) {
       quat.copy(tmpQ);
       scl.copy(tmpS);
       havePose = true;
+      resetMotion();
+    }
+
+    // The pupil is thrown by how the EYE OBJECT moves (not the head's centre):
+    // turning or tilting the head swings the object, which is its lever arm.
+    tmpEye.set(0, p.dy, p.dz).applyMatrix4(tmpM);
+    const t = nowMs / 1000;
+    samples.push({ t, x: tmpEye.x, y: tmpEye.y });
+    while (samples.length && t - samples[0].t > ACCEL_WINDOW_S) samples.shift();
+    const a = fitAcceleration(samples);
+    if (a) {
+      const mag = Math.hypot(a.ax, a.ay);
+      const eff = Math.min(ACCEL_MAX_CM, Math.max(0, mag - ACCEL_DEADZONE_CM)); // ignore noise, clip glitches
+      const k = mag > 0 ? eff / mag : 0; // keep the direction
+      accelTarget.x = a.ax * k;
+      accelTarget.y = a.ay * k;
+    } else {
+      accelTarget.x = accelTarget.y = 0;
     }
 
     const s = {};
@@ -165,15 +265,13 @@ function createSlot(index, eyeFactory, p) {
       state.gy = up - down;
     }
     // Face-space +X is the subject's LEFT, so looking right moves the pupil to -X.
-    let nx = -dead(state.gx) * p.gain;
-    let ny = dead(state.gy) * p.gainY;
+    let nx = -dead(state.gx) * GAZE_AMP;
+    let ny = dead(state.gy) * GAZE_AMP;
     const len = Math.hypot(nx, ny);
     if (len > 1) {
       nx /= len;
       ny /= len;
     }
-    state.nx = nx;
-    state.ny = ny;
     target.x = nx * PUPIL_TRAVEL;
     target.y = ny * PUPIL_TRAVEL;
 
@@ -199,29 +297,55 @@ function createSlot(index, eyeFactory, p) {
       catcherRig.quaternion.set(0, 0, 0, 1).slerp(quat, CATCHER_FOLLOW);
     }
 
-    // Pupil: damped spring toward the gaze target, kept inside the dome.
-    const damping = 2 * SPRING_DAMPING * Math.sqrt(SPRING_K);
+    // Head acceleration, eased between detections; none if the face is gone.
+    if (nowMs - slot.lastSeen > 200) accelTarget.x = accelTarget.y = 0;
+    const ka = 1 - Math.exp(-dt / ACCEL_TAU);
+    accel.x += (accelTarget.x - accel.x) * ka;
+    accel.y += (accelTarget.y - accel.y) * ka;
+
+    // Forces on the pupil, in the eye's own frame (the object turns with the
+    // head, so "down" and the head's push are rotated into it): gravity pulls
+    // toward world-down, and the container's acceleration pushes the other way.
+    invQ.copy(quat).invert();
+    gLocal.set(0, -1, 0).applyQuaternion(invQ);
+    aLocal.set(accel.x, accel.y, 0).applyQuaternion(invQ);
+    const fx = gLocal.x * p.gravity - aLocal.x * 10 * p.shake; // cm -> mm
+    const fy = gLocal.y * p.gravity - aLocal.y * 10 * p.shake;
+    state.ax = fx;
+    state.ay = fy;
+
     const n = Math.max(1, Math.ceil(dt / (1 / 240)));
     const h = dt / n;
+    const drag = Math.exp(-PUPIL_DAMPING * h);
     for (let i = 0; i < n; i++) {
-      pupil.vx += (SPRING_K * (target.x - pupil.x) - damping * pupil.vx) * h;
-      pupil.vy += (SPRING_K * (target.y - pupil.y) - damping * pupil.vy) * h;
+      let ax = fx;
+      let ay = fy;
+      if (p.gaze > 0) {
+        ax += GAZE_SPRING_K * p.gaze * (target.x - pupil.x);
+        ay += GAZE_SPRING_K * p.gaze * (target.y - pupil.y);
+      }
+      pupil.vx = (pupil.vx + ax * h) * drag;
+      pupil.vy = (pupil.vy + ay * h) * drag;
       pupil.x += pupil.vx * h;
       pupil.y += pupil.vy * h;
       const r = Math.hypot(pupil.x, pupil.y);
       if (r > PUPIL_TRAVEL) {
-        // Hit the rim: put it back on the edge and bounce the outward part of its velocity.
+        // Hit the rim: put it back on the edge and bounce the outward part of
+        // its velocity (a slow touch just stops, so it can rest there).
         const ux = pupil.x / r;
         const uy = pupil.y / r;
         pupil.x = ux * PUPIL_TRAVEL;
         pupil.y = uy * PUPIL_TRAVEL;
         const outward = pupil.vx * ux + pupil.vy * uy;
         if (outward > 0) {
-          pupil.vx -= (1 + WALL_BOUNCE) * outward * ux;
-          pupil.vy -= (1 + WALL_BOUNCE) * outward * uy;
+          const e = outward > REST_SPEED ? p.bounce : 0;
+          pupil.vx -= (1 + e) * outward * ux;
+          pupil.vy -= (1 + e) * outward * uy;
         }
       }
     }
+    state.px = pupil.x / PUPIL_TRAVEL;
+    state.py = pupil.y / PUPIL_TRAVEL;
     eye.setPupil(pupil.x, pupil.y);
   };
 

@@ -1,8 +1,8 @@
 # Eye filter (face tracking)
 
 A selfie filter that runs in the browser: your front camera, a 3D copy of the
-hamsa-with-googly-eye object placed over your face, and a pupil that looks where
-you look. Fully separate from the image-tracking gallery app in the parent
+hamsa-with-googly-eye object placed over your face, and a loose pupil you play
+with by moving your head. Fully separate from the image-tracking gallery app in the parent
 folder - nothing outside `/face/` is used or changed.
 
 - Live at `https://lukori.github.io/Hamsa_AR/face/`
@@ -47,12 +47,31 @@ folder - nothing outside `/face/` is used or changed.
   More faces = more work per frame; check `detect` ms in `?debug` with 2-3
   people. MediaPipe only finds reasonably large faces, so people far from the
   camera, or heavily overlapping faces, may not get an eye.
-- **Placement and gaze** (`js/filter.js`): the object is attached to the head
-  pose, smoothed, and sized to cover the face. Gaze = left/right and up/down
-  blendshapes combined into a direction, amplified (`gain`), and drives the
-  pupil through an under-damped spring (`SPRING_DAMPING` 0.38: it overshoots
-  its target by about a quarter and settles back) and it bounces off the rim of
-  the dome (`WALL_BOUNCE`), like a real googly eye. While blinking the gaze is frozen (readings are unreliable).
+- **Placement** (`js/filter.js`): the object is attached to the head pose,
+  smoothed, and sized to cover the face.
+- **The pupil is a physical object, not a gaze pointer** (`js/filter.js`). It is a
+  free disc in the dome, like a real googly eye, only more energetic:
+  - *gravity* pulls it toward world-down, rotated into the object's own frame,
+    so it rests at the bottom of the dome and slides around the rim when you
+    tilt your head (ear to shoulder: it falls to that side);
+  - *head motion* throws it: the acceleration of the eye object (from its
+    tracked position, so turning or tilting the head counts, via the object's
+    lever arm) pushes the pupil the opposite way, exaggerated by `shake` (2.2;
+    1 = physically accurate). Acceleration is fitted over the last ~0.3s
+    (differentiating noisy positions twice directly would be mostly noise), a
+    12 cm/s^2 soft dead-zone keeps a still head from twitching it, and tracking
+    glitches above ~3g are clipped;
+  - *the rim*: it bounces off the edge of the dome (`bounce` 0.8: keeps 80% of
+    its speed; a slow touch just rests) and loses speed slowly (`PUPIL_DAMPING`),
+    so shaking the head from side to side throws it from rim to rim, and moving
+    the head in circles sends it orbiting around the rim in step with the head;
+  - *gravity strength* is `gravity` mm/s^2 (1100; real gravity, 9810, would make
+    it fall too fast to see);
+  - *where you look* is still measured (eye-gaze blendshapes) and shown in
+    `?debug`, but only affects the pupil if you set `gaze` above 0 (0 = pure
+    physics, 1 = also pulled toward your gaze point). It was the original
+    behaviour, but looking sideways means not looking at the screen, so it was
+    rarely seen (git tag `checkpoint-eye-filter-gaze-follow` has that version).
 - **The page** (`index.html`, `js/main.js`): start button (required for the
   camera on iPhone), front camera, mirrored selfie view (video and 3D canvas are
   flipped together with CSS), render loop.
@@ -64,10 +83,11 @@ gave the expected `gx`/`gy` signs and the object turned with the head.
 
 URL parameters (also set by the +/- buttons in `?debug`, which update the
 address bar so you can copy the tuned link): `s` (size, 1 = real size, default
-2.9), `dy` (cm up, default -0.55), `dz` (cm forward, default 8.5), `gain` and
-`gainy` (gaze strength, default 2.2). Defaults live in `js/filter.js`.
+2.9), `dy` (cm up, default -0.55), `dz` (cm forward, default 8.5), `shake`
+(2.2), `grav` (gravity, 1100), `bounce` (0.8) and `gaze` (0). Defaults live in
+`js/filter.js`.
 
-`?debug` also shows live face/gaze/head numbers, FPS and detection time, and
+`?debug` also shows live pupil/push/head/gaze numbers, FPS and detection time, and
 has **Save log** / **Copy log** (a timestamped sample every 0.25s, with a block
 per tracked face) to send back for tuning.
 
@@ -85,7 +105,9 @@ Everything above was exercised in a desktop browser (real MediaPipe model on
 face photos, and the full page with a fake camera built from a photo). **Not**
 tested: an actual phone camera, iOS Safari specifics (GPU delegate, front
 camera orientation), and how well gaze tracking holds up on a phone at arm's
-length. Expect to tune `gain` / placement from a real session's log.
+length. The physics is tuned on synthetic head movements (still, shaking,
+circling, tilting, noisy tracking), not on a real person: expect to tune
+`shake` / `gravity` / `bounce` from a real session.
 
 Still loaded from jsDelivr at run time: the MediaPipe JS bundle and WASM (about
 9MB) and three.js.

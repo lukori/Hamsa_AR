@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { loadEye } from "./eye.js?v=4";
-import { createFaceManager } from "./filter.js?v=5";
+import { createFaceManager } from "./filter.js?v=6";
 import { createScene } from "./scene.js?v=2";
 
 // Pinned: the MediaPipe Tasks Vision bundle + its WASM, and the face model.
@@ -18,7 +18,7 @@ const MAX_FACES = 3;
 const query = new URLSearchParams(location.search);
 const debugEnabled = query.has("debug");
 const params = {};
-for (const [key, name] of [["s", "size"], ["dy", "dy"], ["dz", "dz"], ["gain", "gain"], ["gainy", "gainY"]]) {
+for (const [key, name] of [["s", "size"], ["dy", "dy"], ["dz", "dz"], ["shake", "shake"], ["grav", "gravity"], ["bounce", "bounce"], ["gaze", "gaze"]]) {
   if (query.has(key) && Number.isFinite(parseFloat(query.get(key)))) params[name] = parseFloat(query.get(key));
 }
 
@@ -184,16 +184,18 @@ function createDebug({ faces, video }) {
     status.textContent = t;
     setTimeout(() => status.textContent === t && (status.textContent = ""), 4000);
   };
-  const urlKeys = { size: "s", dy: "dy", dz: "dz", gain: "gain", gainY: "gainy" };
+  const urlKeys = { size: "s", dy: "dy", dz: "dz", shake: "shake", gravity: "grav", bounce: "bounce", gaze: "gaze" };
   const adjust = (name, delta) => {
-    faces.params[name] = Math.round((faces.params[name] + delta) * 100) / 100;
+    const [lo, hi] = limits[name] || [-Infinity, Infinity];
+    faces.params[name] = Math.min(hi, Math.max(lo, Math.round((faces.params[name] + delta) * 100) / 100));
     faces.applyParams();
     const url = new URL(location.href);
     for (const k in urlKeys) url.searchParams.set(urlKeys[k], faces.params[k]);
     history.replaceState(null, "", url);
     push(`${stamp(performance.now())}s PARAM ${name}=${faces.params[name]}`);
   };
-  for (const [name, step] of [["size", 0.1], ["dy", 0.25], ["dz", 0.25], ["gain", 0.2]]) {
+  const limits = { bounce: [0, 0.98], gaze: [0, 1], gravity: [0, 5000], shake: [0, 8] };
+  for (const [name, step] of [["size", 0.1], ["dy", 0.25], ["dz", 0.25], ["shake", 0.4], ["gravity", 200], ["bounce", 0.05], ["gaze", 0.1]]) {
     btn(`${name} -`, () => adjust(name, -step));
     btn(`${name} +`, () => adjust(name, step));
   }
@@ -213,7 +215,7 @@ function createDebug({ faces, video }) {
       `params: ${JSON.stringify(faces.params)}`,
       `lines: ${lines.length}`,
       "",
-      "Columns (every 0.25s): t | faces | fps | detect ms | then one block per tracked face (S0 = first, blue): colour gx gy (+ = subject looks right/up) | pupil nx ny (-1..1) | head yaw pitch roll (deg) | blink",
+      "Columns (every 0.25s): t | faces | fps | detect ms | then one block per tracked face (S0 = first, blue): colour | gaze gx gy (+ = looks right/up; informational unless gaze>0) | pupil px py (-1..1 of its travel) | push ax ay on the pupil, mm/s^2 (gravity + head motion, in the eye frame) | head yaw pitch roll (deg) | blink",
       "",
     ];
   }
@@ -274,8 +276,8 @@ function createDebug({ faces, video }) {
           const s = x.state;
           const pm = x.pupilMm();
           return (
-            `#${x.index} ${x.colorName.padEnd(6)} gaze ${s.gx.toFixed(2)},${s.gy.toFixed(2)} -> pupil ${s.nx.toFixed(2)},${s.ny.toFixed(2)} (${pm.x.toFixed(1)},${pm.y.toFixed(1)}mm)` +
-            ` head ${s.yaw.toFixed(0)}/${s.pitch.toFixed(0)}/${s.roll.toFixed(0)}${s.blink > 0.55 ? " BLINK" : ""}`
+            `#${x.index} ${x.colorName.padEnd(6)} pupil ${s.px.toFixed(2)},${s.py.toFixed(2)} (${pm.x.toFixed(1)},${pm.y.toFixed(1)}mm)` +
+            ` push ${s.ax.toFixed(0)},${s.ay.toFixed(0)} head ${s.yaw.toFixed(0)}/${s.pitch.toFixed(0)}/${s.roll.toFixed(0)} gaze ${s.gx.toFixed(2)},${s.gy.toFixed(2)}${s.blink > 0.55 ? " BLINK" : ""}`
           );
         });
         pre.textContent =
@@ -287,7 +289,7 @@ function createDebug({ faces, video }) {
         nextSample = now + 250;
         const blocks = active.map((x) => {
           const s = x.state;
-          return `S${x.index} ${x.colorName} ${s.gx.toFixed(2)} ${s.gy.toFixed(2)} | ${s.nx.toFixed(2)} ${s.ny.toFixed(2)} | ${s.yaw.toFixed(0)} ${s.pitch.toFixed(0)} ${s.roll.toFixed(0)} | ${s.blink.toFixed(2)}`;
+          return `S${x.index} ${x.colorName} | ${s.gx.toFixed(2)} ${s.gy.toFixed(2)} | ${s.px.toFixed(2)} ${s.py.toFixed(2)} | ${s.ax.toFixed(0)} ${s.ay.toFixed(0)} | ${s.yaw.toFixed(0)} ${s.pitch.toFixed(0)} ${s.roll.toFixed(0)} | ${s.blink.toFixed(2)}`;
         });
         push(`${stamp(now)}s ${active.length} | ${fps} | ${lastDetect.toFixed(0)}${blocks.length ? " || " + blocks.join(" || ") : ""}`);
       }
