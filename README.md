@@ -336,6 +336,14 @@ it has been found/lost, and a log of recent finds, losses, hold expiries and
 variant switches. Use it in the gallery to see which image variants keep
 flipping in and out.
 
+The overlay also has **Save log** and **Copy log** buttons that export the full
+history (not just the last few lines): a header with device/build info (user
+agent, screen, camera resolution, `MIND_VERSION`, trigger settings), every
+find/lose/hold-expiry/switch event with a timestamp, and a state snapshot twice
+a second showing which triggers were live, held and shown. On a phone, Save log
+opens the share sheet (send it straight to yourself or a chat) and falls back
+to a file download; Copy log puts the text on the clipboard.
+
 ## Using a crop of the print as a trigger (`contentTransform`)
 
 A part of a print with larger, more distinctive shapes can track far better

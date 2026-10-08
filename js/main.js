@@ -80,20 +80,119 @@ async function startExperience() {
     // trigger, whether it's LIVE (tracked right now), HELD (frozen through the
     // lost-tracking hold), which one is SHOWN, how many times it has been
     // found/lost, and a log of recent switches - to tell which image variants
-    // flip-flop in a real gallery.
+    // flip-flop in a real gallery. "Save log" / "Copy log" export the FULL
+    // history (every event, plus a state snapshot twice a second) with a
+    // header of device/build info, to send back for analysis.
     const debugEnabled = new URLSearchParams(location.search).has("debug");
-    const debugEvents = [];
+    const debugEvents = []; // last few events, shown on screen
+    const debugAll = []; // everything, for export (capped)
+    const DEBUG_MAX_LINES = 30000;
+    const debugStart = performance.now();
+    const shortId = (m) => m.config.id.replace("trigger-", "");
+    const stamp = () => ((performance.now() - debugStart) / 1000).toFixed(2).padStart(7);
+    function pushAll(line) {
+      debugAll.push(line);
+      if (debugAll.length > DEBUG_MAX_LINES) debugAll.shift();
+    }
     function debugLog(text) {
-      debugEvents.unshift(`${(performance.now() / 1000).toFixed(1)}s ${text}`);
+      if (!debugEnabled) return;
+      const line = `${stamp()}s EVENT ${text}`;
+      pushAll(line);
+      debugEvents.unshift(line.trim());
       if (debugEvents.length > 12) debugEvents.pop();
     }
+    function buildLogText() {
+      const video = container.querySelector("video");
+      const header = [
+        "Hamsa AR debug log",
+        `saved: ${new Date().toISOString()}`,
+        `page: ${location.href}`,
+        `main.js: ${import.meta.url}`,
+        `MIND_VERSION: ${MIND_VERSION}`,
+        `userAgent: ${navigator.userAgent}`,
+        `screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}x, viewport ${innerWidth}x${innerHeight}`,
+        `camera video: ${video ? `${video.videoWidth}x${video.videoHeight}` : "n/a"}`,
+        `triggers: ${members.map((m) => `${m.config.id}(idx ${m.config.targetIndex}${m.graceMs ? `, hold ${m.graceMs}ms` : ""}${m.config.group ? `, group ${m.config.group}` : ""})`).join("; ")}`,
+        `glide: ${GLIDE_MS}ms`,
+        `lines: ${debugAll.length}${debugAll.length >= DEBUG_MAX_LINES ? " (oldest dropped)" : ""}`,
+        "",
+        "Format: <seconds since page load> EVENT <what happened> | STATE live=[...] held=[...] shown=[...]",
+        "",
+      ];
+      return header.concat(debugAll).join("\n") + "\n";
+    }
     let debugEl = null;
+    let debugStatusEl = null;
     let nextDebugUpdate = 0;
+    let nextDebugSample = 0;
+    function setDebugStatus(text) {
+      if (!debugStatusEl) return;
+      debugStatusEl.textContent = text;
+      setTimeout(() => {
+        if (debugStatusEl.textContent === text) debugStatusEl.textContent = "";
+      }, 4000);
+    }
+    async function saveLog() {
+      const text = buildLogText();
+      const name = `hamsa-ar-log-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+      const file = new File([text], name, { type: "text/plain" });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: name });
+          setDebugStatus(`shared ${debugAll.length} lines`);
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
+      }
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setDebugStatus(`downloaded ${name}`);
+    }
+    async function copyLog() {
+      const text = buildLogText();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      setDebugStatus(`copied ${debugAll.length} lines`);
+    }
     if (debugEnabled) {
+      const wrap = document.createElement("div");
+      wrap.style.cssText =
+        "position:fixed;top:4px;left:4px;z-index:30;max-width:96vw;pointer-events:none;font:11px/1.35 ui-monospace,Menlo,monospace;";
       debugEl = document.createElement("pre");
       debugEl.style.cssText =
-        "position:fixed;top:4px;left:4px;z-index:30;margin:0;padding:6px 8px;font:11px/1.35 ui-monospace,Menlo,monospace;color:#0f0;background:rgba(0,0,0,0.65);pointer-events:none;max-width:96vw;white-space:pre-wrap;";
-      document.body.appendChild(debugEl);
+        "margin:0;padding:6px 8px;color:#0f0;background:rgba(0,0,0,0.65);white-space:pre-wrap;";
+      const bar = document.createElement("div");
+      bar.style.cssText = "display:flex;gap:6px;align-items:center;margin-top:4px;pointer-events:auto;";
+      const mkButton = (label, handler) => {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.style.cssText =
+          "font:600 12px -apple-system,sans-serif;padding:6px 12px;border-radius:8px;border:0;background:#0f0;color:#000;";
+        btn.addEventListener("click", handler);
+        return btn;
+      };
+      debugStatusEl = document.createElement("span");
+      debugStatusEl.style.cssText = "color:#0f0;background:rgba(0,0,0,0.65);padding:2px 6px;";
+      bar.append(mkButton("Save log", saveLog), mkButton("Copy log", copyLog), debugStatusEl);
+      wrap.append(debugEl, bar);
+      document.body.appendChild(wrap);
+      pushAll(`${stamp()}s EVENT debug logging started`);
     }
     function updateDebug(now) {
       if (!debugEl || now < nextDebugUpdate) return;
@@ -104,6 +203,13 @@ async function startExperience() {
         return `${m.config.id.padEnd(17)} ${state.padEnd(11)} ${shown ? "SHOWN" : "     "}${m.glide ? " glide" : ""}  found${m.founds}/lost${m.losts}`;
       });
       debugEl.textContent = rows.join("\n") + "\n--\n" + debugEvents.join("\n");
+      if (now >= nextDebugSample) {
+        nextDebugSample = now + 500;
+        const live = members.filter((m) => m.live).map(shortId).join(",");
+        const held = members.filter((m) => m.grace).map(shortId).join(",");
+        const shown = members.filter((m) => (m.config.group ? m.shown : m.live)).map(shortId).join(",");
+        pushAll(`${stamp()}s STATE live=[${live}] held=[${held}] shown=[${shown}]`);
+      }
     }
 
     // Poses handed from one trigger's content to another's (a variant switch,
