@@ -317,6 +317,25 @@ that's only being held. (MindAR has its own global `missTolerance`, but it
 applies to every target at once and isn't used here so the yellow poster stays
 exactly as it was.)
 
+## Gliding between poses, and the `?debug` overlay
+
+For triggers in a `group` or with a hold (`lostGraceMs`), `main.js` also eases
+the content's pose instead of letting it snap: when tracking returns after a
+hold, or when the shown variant switches to another one (each variant sees the
+print from a slightly different estimated pose), the content glides from where
+it was being displayed to the live tracked pose over 300ms (`GLIDE_MS` in
+`main.js`). Poses are compared as the content's world pose, so it works across
+variants with different anchor frames (e.g. the title-block crop). The yellow
+poster has neither a group nor a hold and is left exactly as MindAR drives it.
+
+Open the page with `?debug` appended to the URL (e.g.
+`https://lukori.github.io/Hamsa_AR/?debug`) to get a small on-screen overlay,
+off otherwise: per trigger, whether it's `LIVE` (tracked right now) or `HELD`
+(frozen through the hold, with ms left), which one is `SHOWN`, how many times
+it has been found/lost, and a log of recent finds, losses, hold expiries and
+variant switches. Use it in the gallery to see which image variants keep
+flipping in and out.
+
 ## Using a crop of the print as a trigger (`contentTransform`)
 
 A part of a print with larger, more distinctive shapes can track far better

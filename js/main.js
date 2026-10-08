@@ -76,6 +76,64 @@ async function startExperience() {
     const allMixers = [];
     const members = [];
 
+    // Hidden diagnostic overlay: open the page with ?debug to see, per
+    // trigger, whether it's LIVE (tracked right now), HELD (frozen through the
+    // lost-tracking hold), which one is SHOWN, how many times it has been
+    // found/lost, and a log of recent switches - to tell which image variants
+    // flip-flop in a real gallery.
+    const debugEnabled = new URLSearchParams(location.search).has("debug");
+    const debugEvents = [];
+    function debugLog(text) {
+      debugEvents.unshift(`${(performance.now() / 1000).toFixed(1)}s ${text}`);
+      if (debugEvents.length > 12) debugEvents.pop();
+    }
+    let debugEl = null;
+    let nextDebugUpdate = 0;
+    if (debugEnabled) {
+      debugEl = document.createElement("pre");
+      debugEl.style.cssText =
+        "position:fixed;top:4px;left:4px;z-index:30;margin:0;padding:6px 8px;font:11px/1.35 ui-monospace,Menlo,monospace;color:#0f0;background:rgba(0,0,0,0.65);pointer-events:none;max-width:96vw;white-space:pre-wrap;";
+      document.body.appendChild(debugEl);
+    }
+    function updateDebug(now) {
+      if (!debugEl || now < nextDebugUpdate) return;
+      nextDebugUpdate = now + 150;
+      const rows = members.map((m) => {
+        const state = m.live ? "LIVE" : m.grace ? `HELD ${Math.max(0, m.graceUntil - now) | 0}ms` : "-";
+        const shown = m.config.group ? m.shown : m.live;
+        return `${m.config.id.padEnd(17)} ${state.padEnd(11)} ${shown ? "SHOWN" : "     "}${m.glide ? " glide" : ""}  found${m.founds}/lost${m.losts}`;
+      });
+      debugEl.textContent = rows.join("\n") + "\n--\n" + debugEvents.join("\n");
+    }
+
+    // Poses handed from one trigger's content to another's (a variant switch,
+    // or tracking returning after a hold) would otherwise SNAP. `glide`
+    // eases the content's world pose from where it was being displayed to the
+    // live tracked pose over GLIDE_MS. Poses are compared as the CONTENT's
+    // world matrix (anchor matrix x content's own transform), because
+    // different triggers have different anchor frames (e.g. the title-block
+    // crop has a contentTransform).
+    const GLIDE_MS = 300;
+    const tmpTarget = new THREE.Matrix4();
+    const tmpOut = new THREE.Matrix4();
+    const pA = new THREE.Vector3();
+    const pB = new THREE.Vector3();
+    const qA = new THREE.Quaternion();
+    const qB = new THREE.Quaternion();
+    const sA = new THREE.Vector3();
+    const sB = new THREE.Vector3();
+    function blendPose(from, to, t, out) {
+      from.decompose(pA, qA, sA);
+      to.decompose(pB, qB, sB);
+      out.compose(pA.lerp(pB, t), qA.slerp(qB, t), sA.lerp(sB, t));
+    }
+    function poseWorld(m) {
+      return m.shownMatrix.clone().multiply(m.content.matrix);
+    }
+    function startGlide(member, fromWorld) {
+      member.glide = { t0: performance.now(), from: fromWorld };
+    }
+
     // Triggers sharing a `group` in config.js (e.g. several photos of the
     // same print under different lighting, all leading to the same content)
     // would otherwise each show their own copy of it whenever more than one
@@ -87,11 +145,16 @@ async function startExperience() {
     const groups = {};
     function refreshGroup(name) {
       const ms = groups[name];
+      const prev = ms.find((m) => m.shown);
       const winner =
         ms.find((m) => m.shown && m.live) ||
         ms.find((m) => m.live) ||
         ms.find((m) => m.shown && m.grace) ||
         ms.find((m) => m.grace);
+      if (winner && prev && winner !== prev && (prev.live || prev.grace)) {
+        startGlide(winner, poseWorld(prev));
+        debugLog(`switch ${prev.config.id} -> ${winner.config.id}`);
+      }
       for (const m of ms) {
         m.shown = m === winner;
         m.content.visible = m.shown;
@@ -118,6 +181,7 @@ async function startExperience() {
         if (position) content.position.set(...position);
         if (scale) content.scale.setScalar(scale);
       }
+      content.updateMatrix();
       const { videos, updaters, mixers } = await buildAnchorContent(content, triggerConfig);
 
       allVideos.push(...videos);
@@ -127,14 +191,23 @@ async function startExperience() {
       const member = {
         anchor,
         content,
+        contentInv: content.matrix.clone().invert(),
         videos,
         config: triggerConfig,
         graceMs: triggerConfig.lostGraceMs ?? 0,
+        // Only triggers that opt into the hold or a group get the pose
+        // handling below; everything else (the yellow poster) is left
+        // exactly as MindAR drives it.
+        managed: (triggerConfig.lostGraceMs ?? 0) > 0 || !!triggerConfig.group,
         live: false, // MindAR is tracking this image right now
         grace: false, // tracking just dropped; content is held frozen for graceMs
         graceUntil: 0,
-        lastMatrix: new THREE.Matrix4(),
+        raw: new THREE.Matrix4(), // latest pose from MindAR while live
+        shownMatrix: new THREE.Matrix4(), // pose last actually displayed
+        glide: null,
         shown: false,
+        founds: 0,
+        losts: 0,
       };
       members.push(member);
       if (triggerConfig.group) {
@@ -143,21 +216,33 @@ async function startExperience() {
       }
 
       anchor.onTargetFound = () => {
+        const wasHeld = member.grace;
         member.live = true;
         member.grace = false;
+        member.founds += 1;
+        member.raw.copy(anchor.group.matrix);
         if (triggerConfig.group) refreshGroup(triggerConfig.group);
+        if (wasHeld && !member.glide && (!triggerConfig.group || member.shown)) {
+          startGlide(member, poseWorld(member));
+        }
+        debugLog(`${triggerConfig.id} FOUND${wasHeld ? " (re-lock)" : ""}`);
         if (triggerConfig.onFound === "play") {
           videos.forEach((v) => v.play().catch(() => {}));
         }
       };
+      anchor.onTargetUpdate = () => {
+        if (member.live) member.raw.copy(anchor.group.matrix);
+      };
       anchor.onTargetLost = () => {
         member.live = false;
+        member.losts += 1;
         if (member.graceMs > 0) {
           member.grace = true;
           member.graceUntil = performance.now() + member.graceMs;
         } else {
           pauseIfConfigured(member);
         }
+        debugLog(`${triggerConfig.id} LOST${member.graceMs > 0 ? " (holding)" : ""}`);
         if (triggerConfig.group) refreshGroup(triggerConfig.group);
       };
     }
@@ -167,23 +252,41 @@ async function startExperience() {
     // its pose, and an image with few trackable features (like the text
     // panel) drops tracking for a frame or two constantly even when it's
     // still in view - which reads as the content flickering away. For
-    // members with a grace period, remember the last live pose each frame,
-    // and for graceMs after a loss keep showing the content frozen at that
-    // pose; if tracking comes back in time (onTargetFound) MindAR takes over
-    // again, otherwise it disappears as normal once the time is up.
-    function updateGrace() {
+    // managed members, keep the last displayed pose, and for graceMs after a
+    // loss keep showing the content frozen at that pose; if tracking comes
+    // back in time (onTargetFound) it glides to the new pose, otherwise it
+    // disappears as normal once the time is up. While live, the displayed
+    // pose is the raw tracked pose, or the eased pose during a glide.
+    function updatePoses() {
       const now = performance.now();
       for (const m of members) {
+        if (!m.managed) continue;
+        const g = m.anchor.group;
         if (m.live) {
-          if (m.graceMs > 0) m.lastMatrix.copy(m.anchor.group.matrix);
+          if (m.glide) {
+            const t = (now - m.glide.t0) / GLIDE_MS;
+            if (t >= 1) {
+              m.glide = null;
+              g.matrix.copy(m.raw);
+            } else {
+              tmpTarget.copy(m.raw).multiply(m.content.matrix);
+              blendPose(m.glide.from, tmpTarget, 1 - Math.pow(1 - t, 3), tmpOut);
+              g.matrix.copy(tmpOut).multiply(m.contentInv);
+            }
+          } else {
+            g.matrix.copy(m.raw);
+          }
+          m.shownMatrix.copy(g.matrix);
         } else if (m.grace) {
           if (now < m.graceUntil) {
-            m.anchor.group.visible = true;
-            m.anchor.group.matrix.copy(m.lastMatrix);
+            g.visible = true;
+            g.matrix.copy(m.shownMatrix);
           } else {
             m.grace = false;
-            m.anchor.group.visible = false;
+            m.glide = null;
+            g.visible = false;
             pauseIfConfigured(m);
+            debugLog(`${m.config.id} hold expired`);
             if (m.config.group) refreshGroup(m.config.group);
           }
         }
@@ -199,7 +302,8 @@ async function startExperience() {
       const delta = clock.getDelta();
       allUpdaters.forEach((update) => update(elapsed));
       allMixers.forEach((mixer) => mixer.update(delta));
-      updateGrace();
+      updatePoses();
+      updateDebug(performance.now());
       renderer.render(scene, camera);
     });
   } catch (err) {
