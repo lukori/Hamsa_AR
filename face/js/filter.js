@@ -22,7 +22,9 @@ export const DEFAULT_PARAMS = {
   dz: 8.5, // cm forward of the face model's origin (nose tip is ~7.5)
   shake: 2.2, // how strongly head acceleration throws the pupil (1 = physically accurate, more = more energetic)
   gravity: 1100, // mm/s^2 pulling the pupil toward the bottom of the dome (real gravity is 9810: too fast to see)
-  bounce: 0.8, // share of its speed the pupil keeps when it hits the rim of the dome (0 = dead stop, 1 = perfectly bouncy)
+  bounce: 0.8, // share of its speed the pupil keeps when it hits the SIDE of the dome's rim (0 = dead stop, 1 = perfectly bouncy)
+  bounceY: 0.3, // the same for the TOP and BOTTOM of the rim (screen-vertical impacts); in between, it blends
+  shakeY: 1, // how much of the head's UP/DOWN acceleration reaches the pupil (1 = same as sideways; below 1 it also weakens circular spin, which needs a full vertical push to get over the top)
   gaze: 0, // 0..1: how much the pupil is ALSO pulled toward where the person looks (0 = pure physics)
 };
 
@@ -132,6 +134,7 @@ function createSlot(index, eyeFactory, p) {
   const tmpS = new THREE.Vector3();
   const tmpEye = new THREE.Vector3();
   const invQ = new THREE.Quaternion();
+  const rotM = new THREE.Matrix4();
   const gLocal = new THREE.Vector3();
   const aLocal = new THREE.Vector3();
   const euler = new THREE.Euler();
@@ -172,6 +175,7 @@ function createSlot(index, eyeFactory, p) {
     state,
     applyParams,
     pupilMm: () => ({ x: pupil.x, y: pupil.y }),
+    pupilState: pupil, // live physics state (x, y, vx, vy in mm and mm/s); for debugging/tests
   };
 
   function applyParams() {
@@ -308,7 +312,8 @@ function createSlot(index, eyeFactory, p) {
     // toward world-down, and the container's acceleration pushes the other way.
     invQ.copy(quat).invert();
     gLocal.set(0, -1, 0).applyQuaternion(invQ);
-    aLocal.set(accel.x, accel.y, 0).applyQuaternion(invQ);
+    aLocal.set(accel.x, accel.y * p.shakeY, 0).applyQuaternion(invQ);
+    rotM.makeRotationFromQuaternion(quat); // eye frame -> camera frame, to tell "screen-vertical" rim impacts from sideways ones
     const fx = gLocal.x * p.gravity - aLocal.x * 10 * p.shake; // cm -> mm
     const fy = gLocal.y * p.gravity - aLocal.y * 10 * p.shake;
     state.ax = fx;
@@ -338,7 +343,9 @@ function createSlot(index, eyeFactory, p) {
         pupil.y = uy * PUPIL_TRAVEL;
         const outward = pupil.vx * ux + pupil.vy * uy;
         if (outward > 0) {
-          const e = outward > REST_SPEED ? p.bounce : 0;
+          // Bounce fully off the sides of the rim, softly off the top and bottom.
+          const vert = rotM.elements[1] * ux + rotM.elements[5] * uy; // screen-vertical part of the rim's normal
+          const e = outward > REST_SPEED ? p.bounce - (p.bounce - p.bounceY) * vert * vert : 0;
           pupil.vx -= (1 + e) * outward * ux;
           pupil.vy -= (1 + e) * outward * uy;
         }

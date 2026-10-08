@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { loadEye } from "./eye.js?v=4";
-import { createFaceManager } from "./filter.js?v=6";
+import { createFaceManager } from "./filter.js?v=7";
 import { createScene } from "./scene.js?v=2";
 
 // Pinned: the MediaPipe Tasks Vision bundle + its WASM, and the face model.
@@ -18,7 +18,7 @@ const MAX_FACES = 3;
 const query = new URLSearchParams(location.search);
 const debugEnabled = query.has("debug");
 const params = {};
-for (const [key, name] of [["s", "size"], ["dy", "dy"], ["dz", "dz"], ["shake", "shake"], ["grav", "gravity"], ["bounce", "bounce"], ["gaze", "gaze"]]) {
+for (const [key, name] of [["s", "size"], ["dy", "dy"], ["dz", "dz"], ["shake", "shake"], ["grav", "gravity"], ["bounce", "bounce"], ["bouncey", "bounceY"], ["shakey", "shakeY"], ["gaze", "gaze"]]) {
   if (query.has(key) && Number.isFinite(parseFloat(query.get(key)))) params[name] = parseFloat(query.get(key));
 }
 
@@ -184,7 +184,7 @@ function createDebug({ faces, video }) {
     status.textContent = t;
     setTimeout(() => status.textContent === t && (status.textContent = ""), 4000);
   };
-  const urlKeys = { size: "s", dy: "dy", dz: "dz", shake: "shake", gravity: "grav", bounce: "bounce", gaze: "gaze" };
+  const urlKeys = { size: "s", dy: "dy", dz: "dz", shake: "shake", gravity: "grav", bounce: "bounce", bounceY: "bouncey", shakeY: "shakey", gaze: "gaze" };
   const adjust = (name, delta) => {
     const [lo, hi] = limits[name] || [-Infinity, Infinity];
     faces.params[name] = Math.min(hi, Math.max(lo, Math.round((faces.params[name] + delta) * 100) / 100));
@@ -194,8 +194,8 @@ function createDebug({ faces, video }) {
     history.replaceState(null, "", url);
     push(`${stamp(performance.now())}s PARAM ${name}=${faces.params[name]}`);
   };
-  const limits = { bounce: [0, 0.98], gaze: [0, 1], gravity: [0, 5000], shake: [0, 8] };
-  for (const [name, step] of [["size", 0.1], ["dy", 0.25], ["dz", 0.25], ["shake", 0.4], ["gravity", 200], ["bounce", 0.05], ["gaze", 0.1]]) {
+  const limits = { bounce: [0, 0.98], bounceY: [0, 0.98], shakeY: [0, 2], gaze: [0, 1], gravity: [0, 5000], shake: [0, 8] };
+  for (const [name, step] of [["size", 0.1], ["dy", 0.25], ["dz", 0.25], ["shake", 0.4], ["gravity", 200], ["bounce", 0.05], ["bounceY", 0.05], ["shakeY", 0.1], ["gaze", 0.1]]) {
     btn(`${name} -`, () => adjust(name, -step));
     btn(`${name} +`, () => adjust(name, step));
   }

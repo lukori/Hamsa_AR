@@ -61,10 +61,15 @@ folder - nothing outside `/face/` is used or changed.
     (differentiating noisy positions twice directly would be mostly noise), a
     12 cm/s^2 soft dead-zone keeps a still head from twitching it, and tracking
     glitches above ~3g are clipped;
-  - *the rim*: it bounces off the edge of the dome (`bounce` 0.8: keeps 80% of
-    its speed; a slow touch just rests) and loses speed slowly (`PUPIL_DAMPING`),
-    so shaking the head from side to side throws it from rim to rim, and moving
-    the head in circles sends it orbiting around the rim in step with the head;
+  - *the rim*: it bounces off the edge of the dome and loses speed slowly
+    (`PUPIL_DAMPING`), so shaking the head from side to side throws it from rim
+    to rim, and moving the head in circles sends it orbiting around the rim in
+    step with the head. The bounce depends on where it hits: the SIDES keep 80%
+    of the speed (`bounce` 0.8), the TOP and BOTTOM only 30% (`bounceY` 0.3, blended
+    in between by how vertical the rim is on screen), so it lands softly and
+    doesn't hop like a ball when it falls back to the bottom (measured: a hit on
+    the top/bottom rebounds at 85 mm/s instead of 228, a hit on the side is
+    unchanged). A slow touch just rests;
   - *gravity strength* is `gravity` mm/s^2 (1100; real gravity, 9810, would make
     it fall too fast to see);
   - *where you look* is still measured (eye-gaze blendshapes) and shown in
@@ -84,7 +89,10 @@ gave the expected `gx`/`gy` signs and the object turned with the head.
 URL parameters (also set by the +/- buttons in `?debug`, which update the
 address bar so you can copy the tuned link): `s` (size, 1 = real size, default
 2.9), `dy` (cm up, default -0.55), `dz` (cm forward, default 8.5), `shake`
-(2.2), `grav` (gravity, 1100), `bounce` (0.8) and `gaze` (0). Defaults live in
+(2.2), `grav` (gravity, 1100), `bounce` (0.8), `bouncey` (0.3), `shakey` (1) and
+`gaze` (0). `shakey` scales only the UP/DOWN part of the head's push; below 1 it
+calms nodding but also weakens circular spinning, which needs a full vertical
+push to get over the top of the rim. Defaults live in
 `js/filter.js`.
 
 `?debug` also shows live pupil/push/head/gaze numbers, FPS and detection time, and
