@@ -15,8 +15,8 @@
 // time it carries on, otherwise it disappears. For images that are hard to
 // lock onto (few trackable features) and flicker out for a frame or two.
 // Leave it off for images that track reliably (e.g. the yellow poster).
-// (Currently unused: it was tried at 500ms on the text-panel triggers, see git
-// tag checkpoint-grace-hold-500ms, then switched off for testing.)
+// (Used at 1000ms on the text-panel triggers. History: 500ms first - git tag
+// checkpoint-grace-hold-500ms - then off for a test, then back at 1000ms.)
 //
 // Optional per-trigger `contentTransform: { position: [x, y, z], scale }`: for
 // an image that is only a CROP of the real print. MindAR anchors content to
@@ -140,6 +140,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 1000,
     content: [
       {
         // Second image for the same print: a real photo of the printed
@@ -176,6 +177,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 1000,
     content: [
       {
         // Third image for the same print: a higher-resolution photo of the
@@ -213,6 +215,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 1000,
     content: [
       {
         // Another high-resolution photo of the printed panel on the gallery
@@ -249,6 +252,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 1000,
     content: [
       {
         // Photo taken in the gallery itself (assets/targets-source/
@@ -286,6 +290,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
+    lostGraceMs: 1000,
     contentTransform: { position: [-0.0221, -0.5449, 0], scale: 1.3235 },
     content: [
       {

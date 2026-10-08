@@ -306,7 +306,7 @@ MindAR hides an image's content the instant tracking drops. An image with few
 trackable features (like the text panel: ~20 tracking points vs ~100 for the
 yellow poster) loses tracking for a frame or two even while it's in view,
 which reads as the content flickering away. A trigger can opt in to
-`lostGraceMs: 500` in `config.js` (**currently off everywhere** - it was tried on the text-panel triggers, see git tag `checkpoint-grace-hold-500ms`, then removed again for testing): on a loss, the content stays visible,
+`lostGraceMs: 500` in `config.js` (**currently 1000ms on the text-panel triggers**; 500ms was tried first, see git tag `checkpoint-grace-hold-500ms`): on a loss, the content stays visible,
 frozen at the last known pose, for that many milliseconds; if the image is
 re-found in time it carries on, otherwise it disappears as usual. Default is 0
 (off, identical to before) - the yellow poster doesn't use it. If the held
