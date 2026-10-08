@@ -8,10 +8,10 @@ install, works in iOS Safari and Android Chrome, fully static, no backend.
 
 ## Current status
 
-The app has **2 experiences** across **6 trigger images**, all real content:
+The app has **2 experiences** across **9 trigger images**, all real content:
 the yellow poster (video overlay) and the "What Luck / Luka Or" text panel
 (3D coin rain), where four real photos of the same print on the gallery wall
-plus a crop of its title block all lead to the same coin rain, so it works
+plus a crop of its title block, plus three low-resolution copies of the best images (a resolution experiment), all lead to the same coin rain, so it works
 under different lighting and distances. The
 earlier placeholder triggers (spinning primitive, second coin rain, fish model
 on a generated image) were removed; see git tag
@@ -25,6 +25,7 @@ on a generated image) were removed; see git tag
 | `trigger-02c` | `what_luck_text_trigger_photo3.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
 | `trigger-02d` | `what_luck_text_trigger_gallery.jpg` (photo taken in the gallery, cropped to the print's edge) | Same coin rain | `assets/models/flateye.glb` |
 | `trigger-02-title` | `what_luck_title_crop.jpg` (title block only, cut from the gallery photo) | Same coin rain, re-centred on the whole print via `contentTransform` | `assets/models/flateye.glb` |
+| `trigger-02d-lo`, `trigger-02c-lo`, `trigger-02-title-lo` | `*_lo.jpg` copies of the gallery photo, photo 3 and the title crop, scaled to 526 px wide (title: 397x207) | Same coin rain (experiment: does matching the target's resolution to the phone's low-res camera feed help? see below) | `assets/models/flateye.glb` |
 
 `trigger-01` now uses a real exhibition image and real video content, no
 longer generated placeholders — see "Preparing real trigger images" below
@@ -298,7 +299,7 @@ found) - without that, near-identical variants matching together would each
 draw their own overlapping copy of the content. Append new images at the END
 of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
-count modest. Currently: `trigger-02a`-`02d` and `trigger-02-title` share `text-panel`.
+count modest. Currently: `trigger-02a`-`02d`, `trigger-02-title` and the three `-lo` copies share `text-panel`.
 
 ## Holding content through brief tracking drops (`lostGraceMs`)
 
@@ -306,7 +307,7 @@ MindAR hides an image's content the instant tracking drops. An image with few
 trackable features (like the text panel: ~20 tracking points vs ~100 for the
 yellow poster) loses tracking for a frame or two even while it's in view,
 which reads as the content flickering away. A trigger can opt in to
-`lostGraceMs: 500` in `config.js` (**currently 1000ms on the text-panel triggers**; 500ms was tried first, see git tag `checkpoint-grace-hold-500ms`): on a loss, the content stays visible,
+`lostGraceMs: 500` in `config.js` (**currently 2000ms on the text-panel triggers**; 500ms was tried first - git tag `checkpoint-grace-hold-500ms` - then 1000ms; a debug log from an iPhone showed 4 of 8 tracking gaps lasting 1.0-1.8s, so 2000ms): on a loss, the content stays visible,
 frozen at the last known pose, for that many milliseconds; if the image is
 re-found in time it carries on, otherwise it disappears as usual. Default is 0
 (off, identical to before) - the yellow poster doesn't use it. If the held
@@ -343,6 +344,25 @@ find/lose/hold-expiry/switch event with a timestamp, and a state snapshot twice
 a second showing which triggers were live, held and shown. On a phone, Save log
 opens the share sheet (send it straight to yourself or a chat) and falls back
 to a file download; Copy log puts the text on the clipboard.
+
+## Camera resolution test (`?cam=hd`) and the low-res target copies
+
+MindAR asks the browser for a camera with no resolution, so phones return their
+default - an iPhone returned just **480x640**, small for tracking fine print.
+Open the page with `?cam=hd` (1280x720) or `?cam=fhd` (1920x1080) to ask for a
+bigger feed (the browser may still give less; the debug log header records what
+it actually returned in `camera video:` and `camera track settings:`). Without
+`?cam` nothing changes. A bigger feed costs processing time, so the log's
+STATE lines also record `fps` (render frames/s) and `trackHz` (tracking
+updates/s) to compare the modes.
+
+The first debug log (default camera) showed the lowest-resolution photo
+(`trigger-02a`, 526 px wide) doing nearly all the tracking while the
+900 px-wide images barely locked, which suggests a mismatch between a
+high-res target and a low-res camera feed. The three `-lo` triggers are
+526 px-wide copies of the gallery photo, photo 3 and the title crop, in the
+same group, to test that. If they don't help (the log lists every trigger's
+live time, shown or not), delete them and their images.
 
 ## Using a crop of the print as a trigger (`contentTransform`)
 

@@ -15,8 +15,9 @@
 // time it carries on, otherwise it disappears. For images that are hard to
 // lock onto (few trackable features) and flicker out for a frame or two.
 // Leave it off for images that track reliably (e.g. the yellow poster).
-// (Used at 1000ms on the text-panel triggers. History: 500ms first - git tag
-// checkpoint-grace-hold-500ms - then off for a test, then back at 1000ms.)
+// (Used at 2000ms on the text-panel triggers. History: 500ms first - git tag
+// checkpoint-grace-hold-500ms - then off for a test, then 1000ms, then 2000ms
+// after a debug log showed 4 of 8 tracking gaps lasting 1.0-1.8s.)
 //
 // Optional per-trigger `contentTransform: { position: [x, y, z], scale }`: for
 // an image that is only a CROP of the real print. MindAR anchors content to
@@ -140,7 +141,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 1000,
+    lostGraceMs: 2000,
     content: [
       {
         // Second image for the same print: a real photo of the printed
@@ -177,7 +178,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 1000,
+    lostGraceMs: 2000,
     content: [
       {
         // Third image for the same print: a higher-resolution photo of the
@@ -215,7 +216,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 1000,
+    lostGraceMs: 2000,
     content: [
       {
         // Another high-resolution photo of the printed panel on the gallery
@@ -252,7 +253,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 1000,
+    lostGraceMs: 2000,
     content: [
       {
         // Photo taken in the gallery itself (assets/targets-source/
@@ -290,7 +291,7 @@ export const triggers = [
     // show at the same time - see main.js. Without it, two similar variants
     // matching at once would each draw their own overlapping rain.
     group: "text-panel",
-    lostGraceMs: 1000,
+    lostGraceMs: 2000,
     contentTransform: { position: [-0.0221, -0.5449, 0], scale: 1.3235 },
     content: [
       {
@@ -304,6 +305,120 @@ export const triggers = [
         // 900/680, offset from the crop's centre (465, 267.5) to the print's
         // centre (450, 638), in crop-width (680px) units, y up.
         // boxHeight 4.25 as for the full-panel gallery photo.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4.25,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02d-lo",
+    targetIndex: 6,
+    label: "Hamsa text panel - gallery photo, low-res copy (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    lostGraceMs: 2000,
+    content: [
+      {
+        // LOW-RESOLUTION copy of the gallery photo (assets/targets-source/
+        // what_luck_text_trigger_gallery_lo.jpg, 526x746; compiled at index
+        // 6). Experiment: a debug log from an iPhone (camera feed only
+        // 480x640) showed the lowest-res photo (02a, 526x745) doing almost all
+        // the tracking while the higher-res ones barely locked - so test
+        // whether matching the target's resolution to the camera's helps.
+        // Same content/aspect as 02d (boxHeight 4.25).
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4.25,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02c-lo",
+    targetIndex: 7,
+    label: "Hamsa text panel - photo 3, low-res copy (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    lostGraceMs: 2000,
+    content: [
+      {
+        // LOW-RESOLUTION copy of photo 3 (assets/targets-source/
+        // what_luck_text_trigger_photo3_lo.jpg, 526x701; compiled at index 7).
+        // Same resolution experiment as trigger-02d-lo. boxHeight 4 as 02c.
+        type: "mesh-rain",
+        src: "assets/models/flateye.glb",
+        boxWidth: 3,
+        boxHeight: 4,
+        boxDepth: 0.8,
+        rows: 7,
+        cols: 6,
+        depthLayers: 2,
+        minScale: 0.14,
+        maxScale: 0.3,
+        shadow: true,
+        shadowOpacity: 0.3,
+        shadowOffset: [0.02, -0.025],
+        fallSpeed: 0.4,
+        fallSpeedVariance: 0.25,
+        flipSpeed: 0.5,
+        flipSpeedVariance: 0.5,
+      },
+    ],
+  },
+  {
+    id: "trigger-02-title-lo",
+    targetIndex: 8,
+    label: "Hamsa text panel - title block, low-res copy (same coin rain)",
+    // `group`: triggers sharing a group name (several images of the SAME
+    // print under different lighting, all leading to the same content) never
+    // show at the same time - see main.js. Without it, two similar variants
+    // matching at once would each draw their own overlapping rain.
+    group: "text-panel",
+    lostGraceMs: 2000,
+    contentTransform: { position: [-0.0221, -0.5449, 0], scale: 1.3235 },
+    content: [
+      {
+        // LOW-RESOLUTION copy of the title-block crop (assets/targets-source/
+        // what_luck_title_crop_lo.jpg, 397x207 = the 680x355 crop scaled by
+        // the same 526/900 as the other low-res copies; compiled at index 8).
+        // It covers the same physical region, so the SAME contentTransform
+        // applies (offsets and scale are in crop-width units, not pixels).
+        // The title never locked in the first debug log; this tests whether
+        // that was a resolution mismatch with the 480x640 camera feed.
         type: "mesh-rain",
         src: "assets/models/flateye.glb",
         boxWidth: 3,

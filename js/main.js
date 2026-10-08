@@ -5,7 +5,7 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=22";
+import { triggers } from "./config.js?v=23";
 import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 
 // Same problem, same fix, separate counter: targets.mind has no version in
@@ -14,13 +14,33 @@ import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 // against old trigger images (this bit us once - two brand new trigger
 // images "didn't load" because the phone was still holding a cached
 // targets.mind from before they existed).
-const MIND_VERSION = 10;
+const MIND_VERSION = 11;
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
 const errorScreen = document.getElementById("error-screen");
 const errorMessage = document.getElementById("error-message");
 const container = document.getElementById("ar-container");
+
+// Optional camera resolution test (?cam=hd or ?cam=fhd). MindAR asks the
+// browser for a camera with NO size, so phones hand back their default - an
+// iPhone gave just 480x640, small for tracking fine print. When asked, wrap
+// getUserMedia to add an "ideal" size; if the browser refuses the merged
+// request, fall back to MindAR's original one. Default behavior (no ?cam) is
+// untouched.
+const CAM_SIZES = { hd: [1280, 720], fhd: [1920, 1080] };
+const camMode = new URLSearchParams(location.search).get("cam");
+if (CAM_SIZES[camMode] && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  const [w, h] = CAM_SIZES[camMode];
+  navigator.mediaDevices.getUserMedia = (constraints) => {
+    if (constraints && typeof constraints.video === "object") {
+      const sized = { ...constraints, video: { ...constraints.video, width: { ideal: w }, height: { ideal: h } } };
+      return original(sized).catch(() => original(constraints));
+    }
+    return original(constraints);
+  };
+}
 
 const clock = new THREE.Clock();
 let started = false;
@@ -112,11 +132,20 @@ async function startExperience() {
         `userAgent: ${navigator.userAgent}`,
         `screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}x, viewport ${innerWidth}x${innerHeight}`,
         `camera video: ${video ? `${video.videoWidth}x${video.videoHeight}` : "n/a"}`,
+        `camera param: ${camMode || "default (no ?cam)"}`,
+        `camera track settings: ${(() => {
+          try {
+            const st = video.srcObject.getVideoTracks()[0].getSettings();
+            return JSON.stringify({ width: st.width, height: st.height, frameRate: st.frameRate });
+          } catch (e) {
+            return "n/a";
+          }
+        })()}`,
         `triggers: ${members.map((m) => `${m.config.id}(idx ${m.config.targetIndex}${m.graceMs ? `, hold ${m.graceMs}ms` : ""}${m.config.group ? `, group ${m.config.group}` : ""})`).join("; ")}`,
         `glide: ${GLIDE_MS}ms`,
         `lines: ${debugAll.length}${debugAll.length >= DEBUG_MAX_LINES ? " (oldest dropped)" : ""}`,
         "",
-        "Format: <seconds since page load> EVENT <what happened> | STATE live=[...] held=[...] shown=[...]",
+        "Format: <seconds since page load> EVENT <what happened>  |  STATE live=[...] held=[...] shown=[...] fps=<render frames/s> trackHz=<tracking updates/s, max over triggers>",
         "",
       ];
       return header.concat(debugAll).join("\n") + "\n";
@@ -125,6 +154,8 @@ async function startExperience() {
     let debugStatusEl = null;
     let nextDebugUpdate = 0;
     let nextDebugSample = 0;
+    let lastSampleAt = 0;
+    let debugFrames = 0;
     function setDebugStatus(text) {
       if (!debugStatusEl) return;
       debugStatusEl.textContent = text;
@@ -195,20 +226,30 @@ async function startExperience() {
       pushAll(`${stamp()}s EVENT debug logging started`);
     }
     function updateDebug(now) {
-      if (!debugEl || now < nextDebugUpdate) return;
+      if (!debugEl) return;
+      debugFrames += 1;
+      if (now < nextDebugUpdate) return;
       nextDebugUpdate = now + 150;
       const rows = members.map((m) => {
         const state = m.live ? "LIVE" : m.grace ? `HELD ${Math.max(0, m.graceUntil - now) | 0}ms` : "-";
         const shown = m.config.group ? m.shown : m.live;
         return `${m.config.id.padEnd(17)} ${state.padEnd(11)} ${shown ? "SHOWN" : "     "}${m.glide ? " glide" : ""}  found${m.founds}/lost${m.losts}`;
       });
-      debugEl.textContent = rows.join("\n") + "\n--\n" + debugEvents.join("\n");
+      const vid = container.querySelector("video");
+      const camLine = `camera ${vid ? `${vid.videoWidth}x${vid.videoHeight}` : "?"} (${camMode || "default"})`;
+      debugEl.textContent = camLine + "\n" + rows.join("\n") + "\n--\n" + debugEvents.join("\n");
       if (now >= nextDebugSample) {
         nextDebugSample = now + 500;
         const live = members.filter((m) => m.live).map(shortId).join(",");
         const held = members.filter((m) => m.grace).map(shortId).join(",");
         const shown = members.filter((m) => (m.config.group ? m.shown : m.live)).map(shortId).join(",");
-        pushAll(`${stamp()}s STATE live=[${live}] held=[${held}] shown=[${shown}]`);
+        const win = lastSampleAt ? (now - lastSampleAt) / 1000 : 0.5;
+        lastSampleAt = now;
+        const fps = Math.round(debugFrames / win);
+        const trackHz = Math.round(Math.max(0, ...members.map((m) => m.upd)) / win);
+        debugFrames = 0;
+        members.forEach((m) => (m.upd = 0));
+        pushAll(`${stamp()}s STATE live=[${live}] held=[${held}] shown=[${shown}] fps=${fps} trackHz=${trackHz}`);
       }
     }
 
@@ -314,6 +355,7 @@ async function startExperience() {
         shown: false,
         founds: 0,
         losts: 0,
+        upd: 0, // tracking updates since the last debug sample
       };
       members.push(member);
       if (triggerConfig.group) {
@@ -337,7 +379,10 @@ async function startExperience() {
         }
       };
       anchor.onTargetUpdate = () => {
-        if (member.live) member.raw.copy(anchor.group.matrix);
+        if (member.live) {
+          member.raw.copy(anchor.group.matrix);
+          member.upd += 1;
+        }
       };
       anchor.onTargetLost = () => {
         member.live = false;
