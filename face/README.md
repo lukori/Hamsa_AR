@@ -22,7 +22,11 @@ folder - nothing outside `/face/` is used or changed.
   dome (25mm base radius, ~4.5mm high; modelled as glass that only adds soft
   reflections), the white eye disc, and a 32mm black pupil that moves freely
   inside it (max travel ~8mm, like the real one). Reflections are kept low
-  (`envMapIntensity` / `clearcoat` / pupil `specularIntensity`).
+  (`envMapIntensity` / `clearcoat` / pupil `specularIntensity`). Seen straight
+  on, the ring has the same colour and faces the same way as the base, so it
+  would be invisible; soft gradient "contact shade" decals around and inside the
+  ring (`outerShade` / `innerShade`) make it read as raised, and the eye white is
+  a light grey so it isn't clipped to pure white.
 - **Soft shadow** (`js/filter.js`, `js/scene.js`): a light that follows the head
   from above-front and an invisible plane a few cm behind the object that only
   shows shadows (`SHADOW_OPACITY`, `SHADOW_BLUR`, `SHADOW_GAP`, `LIGHT_OFFSET`),

@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { createEye } from "./eye.js?v=2";
-import { createFilter } from "./filter.js?v=2";
-import { createScene } from "./scene.js?v=1";
+import { createEye } from "./eye.js?v=3";
+import { createFilter } from "./filter.js?v=3";
+import { createScene } from "./scene.js?v=2";
 
 // Pinned: the MediaPipe Tasks Vision bundle + its WASM, and the face model.
 const MP_VERSION = "0.10.35";

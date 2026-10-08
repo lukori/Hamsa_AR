@@ -18,6 +18,18 @@ const PLATE_COLOR = 0x87ceeb; // CSS "skyblue" // sky blue (hand + ring); lit it
 
 export const PUPIL_TRAVEL = EYE_WHITE_R - PUPIL_R - PUPIL_CLEARANCE;
 
+// Black radial gradient (alpha stops, 0 = centre .. 1 = edge) as a texture.
+function radialShade(stops) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 512;
+  const g = c.getContext("2d");
+  const gr = g.createRadialGradient(256, 256, 0, 256, 256, 256);
+  for (const [at, alpha] of stops) gr.addColorStop(at, `rgba(0,0,0,${alpha})`);
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 512, 512);
+  return new THREE.CanvasTexture(c);
+}
+
 export async function createEye(stlUrl) {
   const root = new THREE.Group();
 
@@ -31,7 +43,7 @@ export async function createEye(stlUrl) {
     new THREE.MeshPhysicalMaterial({
       color: PLATE_COLOR,
       emissive: PLATE_COLOR, // a flat lift so the blue stays clean and light in shade
-      emissiveIntensity: 0.32,
+      emissiveIntensity: 0.2,
       roughness: 0.62,
       metalness: 0,
       clearcoat: 0.04,
@@ -44,7 +56,7 @@ export async function createEye(stlUrl) {
 
   const eyeWhite = new THREE.Mesh(
     new THREE.CircleGeometry(EYE_WHITE_R, 96),
-    new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.75 })
+    new THREE.MeshStandardMaterial({ color: 0xd2d3db, roughness: 0.75 })
   );
   eyeWhite.position.z = 0.1;
   root.add(eyeWhite);
@@ -55,6 +67,32 @@ export async function createEye(stlUrl) {
   );
   pupil.position.z = 0.35;
   root.add(pupil);
+
+  // Soft contact shading. Seen straight on, the ring has the same colour and
+  // faces the same way as the base, so it would be invisible; a real piece reads
+  // as raised because of the shadow it casts and the shade inside its wall. A
+  // shadow map is too coarse for a 1.2mm step, so these are soft gradient
+  // decals (always facing the same way, like the light in filter.js).
+  const outerShade = new THREE.Mesh(
+    new THREE.CircleGeometry(34, 96),
+    new THREE.MeshBasicMaterial({
+      map: radialShade([[0, 0], [27 / 34, 0], [27.2 / 34, 0.3], [31.5 / 34, 0.06], [1, 0]]),
+      transparent: true,
+      depthWrite: false,
+    })
+  );
+  outerShade.position.set(-0.5, -1.1, 0.03); // pushed away from the light, like the real shadow
+  root.add(outerShade);
+  const innerShade = new THREE.Mesh(
+    new THREE.CircleGeometry(EYE_WHITE_R, 96),
+    new THREE.MeshBasicMaterial({
+      map: radialShade([[0, 0], [0.72, 0], [1, 0.34]]),
+      transparent: true,
+      depthWrite: false,
+    })
+  );
+  innerShade.position.z = 0.15;
+  root.add(innerShade);
 
   // Clear plastic dome: a spherical cap of base radius DOME_BASE_R and height
   // DOME_HEIGHT, rim on the plate (z=0), apex toward the viewer.

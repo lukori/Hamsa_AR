@@ -19,8 +19,8 @@ export const DEFAULT_PARAMS = {
 
 const SHADOW_OPACITY = 0.42; // how dark the soft shadow is
 const SHADOW_BLUR = 10; // how soft (VSM blur radius)
-const SHADOW_GAP = 3.4; // cm between the object and the surface it shadows
-const LIGHT_OFFSET = new THREE.Vector3(14, 30, 30); // key light relative to the head, cm (above-front)
+const SHADOW_GAP = 3.0; // cm between the object and the surface it shadows
+const LIGHT_OFFSET = new THREE.Vector3(18, 30, 26); // key light relative to the head, cm (above and to the side)
 const HOLD_MS = 350; // keep showing the last pose this long after the face is lost
 const POSE_TAU = 0.045; // pose smoothing time constant (s); lower = snappier
 const SPRING_K = 240; // pupil spring stiffness
@@ -52,7 +52,7 @@ export function createFilter(eye, params = {}) {
   catcher.receiveShadow = true;
   anchor.add(catcher);
   const lightRig = new THREE.Group();
-  const key = new THREE.DirectionalLight(0xffffff, 1.05);
+  const key = new THREE.DirectionalLight(0xffffff, 0.95);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.left = key.shadow.camera.bottom = -24;

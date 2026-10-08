@@ -11,6 +11,6 @@ export function createScene(renderer) {
   renderer.shadowMap.type = THREE.VSMShadowMap; // blurred (soft) edges
   const scene = new THREE.Scene();
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 0.5));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 0.38));
   return scene;
 }
