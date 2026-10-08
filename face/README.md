@@ -27,10 +27,26 @@ folder - nothing outside `/face/` is used or changed.
   would be invisible; soft gradient "contact shade" decals around and inside the
   ring (`outerShade` / `innerShade`) make it read as raised, and the eye white is
   a light grey so it isn't clipped to pure white.
-- **Soft shadow** (`js/filter.js`, `js/scene.js`): a light that follows the head
-  from above-front and an invisible plane a few cm behind the object that only
-  shows shadows (`SHADOW_OPACITY`, `SHADOW_BLUR`, `SHADOW_GAP`, `LIGHT_OFFSET`),
-  so the object looks like it floats just above the face.
+- **Soft shadow** (`js/filter.js`, `js/scene.js`): one light that follows the
+  head(s) from above and to the side, and an invisible plane a few cm behind each
+  object that only shows shadows (`SHADOW_OPACITY` 0.21, `SHADOW_BLUR`,
+  `SHADOW_GAP`, `LIGHT_OFFSET`), so the object looks like it floats just above
+  the face. The plane follows the head's position but only 35% of its rotation
+  (`CATCHER_FOLLOW`), otherwise a strongly turned head stretches the shadow into
+  a long streak.
+- **Up to 3 people at once** (`MAX_FACES` in `js/main.js`): MediaPipe returns the
+  faces in arbitrary order with no IDs, so each detection is matched to the
+  nearest person from the previous frames (3D distance, under 35cm) - each person
+  keeps their own eye, smoothing and pupil, and nobody swaps when the order
+  changes. The first person is always sky blue; the others take the next unused
+  colour from red / yellow / green / orange / purple (`OTHER_COLORS` in
+  `js/eye.js`). Colours stick to a person while they're in frame; a person who
+  has been gone for ~0.9s frees their slot, and a newcomer takes the lowest free
+  one (so a free first slot is always blue). A 4th person is ignored. All
+  people share one light (separate lights would stack up and over-brighten).
+  More faces = more work per frame; check `detect` ms in `?debug` with 2-3
+  people. MediaPipe only finds reasonably large faces, so people far from the
+  camera, or heavily overlapping faces, may not get an eye.
 - **Placement and gaze** (`js/filter.js`): the object is attached to the head
   pose, smoothed, and sized to cover the face. Gaze = left/right and up/down
   blendshapes combined into a direction, amplified (`gain`), and drives the
@@ -51,14 +67,16 @@ address bar so you can copy the tuned link): `s` (size, 1 = real size, default
 `gainy` (gaze strength, default 2.2). Defaults live in `js/filter.js`.
 
 `?debug` also shows live face/gaze/head numbers, FPS and detection time, and
-has **Save log** / **Copy log** (a timestamped sample every 0.25s) to send back
-for tuning.
+has **Save log** / **Copy log** (a timestamped sample every 0.25s, with a block
+per tracked face) to send back for tuning.
 
 ## Caching
 
 Same trick as the main app: `?v=N` on the script/asset URLs in `index.html`,
 `js/main.js` and the STL. Bump N for a file whenever it changes, otherwise a
-phone that already opened the page can keep running the old copy.
+phone that already opened the page can keep running the old copy. `js/eye.js`
+is imported (with its version) by both `main.js` and `filter.js`: bump it in
+both places.
 
 ## Not verified here
 

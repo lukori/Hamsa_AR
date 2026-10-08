@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { createEye } from "./eye.js?v=3";
-import { createFilter } from "./filter.js?v=3";
+import { loadEye } from "./eye.js?v=4";
+import { createFaceManager } from "./filter.js?v=4";
 import { createScene } from "./scene.js?v=2";
 
 // Pinned: the MediaPipe Tasks Vision bundle + its WASM, and the face model.
@@ -12,6 +12,8 @@ const MODEL_URL = "assets/face_landmarker.task?v=1";
 // MediaPipe computes the head pose assuming a pinhole camera with this vertical
 // field of view, so the 3D camera must use the same one to line up.
 const CAMERA_FOV = 63;
+// How many people get an eye at once (each is another face for the phone to track).
+const MAX_FACES = 3;
 
 const query = new URLSearchParams(location.search);
 const debugEnabled = query.has("debug");
@@ -42,7 +44,7 @@ async function loadLandmarker() {
   const options = (delegate) => ({
     baseOptions: { modelAssetPath: MODEL_URL, delegate },
     runningMode: "VIDEO",
-    numFaces: 1,
+    numFaces: MAX_FACES,
     outputFaceBlendshapes: true,
     outputFacialTransformationMatrixes: true,
   });
@@ -76,9 +78,9 @@ async function startExperience() {
   }
 
   try {
-    const [landmarker, eye] = await Promise.all([
+    const [landmarker, eyeFactory] = await Promise.all([
       loadLandmarker(),
-      createEye("assets/hamsa_base.stl?v=1"),
+      loadEye("assets/hamsa_base.stl?v=1"),
       startCamera(),
     ]);
 
@@ -86,8 +88,8 @@ async function startExperience() {
     const scene = createScene(renderer);
 
     const camera = new THREE.PerspectiveCamera(CAMERA_FOV, video.videoWidth / video.videoHeight, 1, 1000);
-    const filter = createFilter(eye, params);
-    scene.add(filter.anchor, filter.lightRig);
+    const faces = createFaceManager(eyeFactory, params, MAX_FACES);
+    scene.add(faces.group);
 
     function layout() {
       const vw = video.videoWidth;
@@ -105,7 +107,7 @@ async function startExperience() {
     layout();
     addEventListener("resize", layout);
 
-    const dbg = debugEnabled ? createDebug({ filter, video }) : null;
+    const dbg = debugEnabled ? createDebug({ faces, video }) : null;
 
     startScreen.classList.add("hidden");
 
@@ -121,9 +123,9 @@ async function startExperience() {
         const t0 = performance.now();
         const result = landmarker.detectForVideo(video, now);
         detectMs = performance.now() - t0;
-        filter.setResult(result, now);
+        faces.setResult(result, now);
       }
-      filter.step(dt, now);
+      faces.step(dt, now);
       renderer.render(scene, camera);
       if (dbg) dbg.frame(now, dt, detectMs);
     });
@@ -148,7 +150,7 @@ async function startExperience() {
 // Hidden diagnostic overlay (?debug): live numbers, +/- buttons to tune the
 // placement and gaze strength on the phone (the link in the address bar is
 // updated so the tuned values can be copied), and Save/Copy log.
-function createDebug({ filter, video }) {
+function createDebug({ faces, video }) {
   const lines = [];
   const MAX = 30000;
   const t0 = performance.now();
@@ -184,12 +186,12 @@ function createDebug({ filter, video }) {
   };
   const urlKeys = { size: "s", dy: "dy", dz: "dz", gain: "gain", gainY: "gainy" };
   const adjust = (name, delta) => {
-    filter.params[name] = Math.round((filter.params[name] + delta) * 100) / 100;
-    filter.applyParams();
+    faces.params[name] = Math.round((faces.params[name] + delta) * 100) / 100;
+    faces.applyParams();
     const url = new URL(location.href);
-    for (const k in urlKeys) url.searchParams.set(urlKeys[k], filter.params[k]);
+    for (const k in urlKeys) url.searchParams.set(urlKeys[k], faces.params[k]);
     history.replaceState(null, "", url);
-    push(`${stamp(performance.now())}s PARAM ${name}=${filter.params[name]}`);
+    push(`${stamp(performance.now())}s PARAM ${name}=${faces.params[name]}`);
   };
   for (const [name, step] of [["size", 0.1], ["dy", 0.25], ["dz", 0.25], ["gain", 0.2]]) {
     btn(`${name} -`, () => adjust(name, -step));
@@ -208,10 +210,10 @@ function createDebug({ filter, video }) {
       `userAgent: ${navigator.userAgent}`,
       `screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}x, viewport ${innerWidth}x${innerHeight}`,
       `camera video: ${video.videoWidth}x${video.videoHeight}`,
-      `params: ${JSON.stringify(filter.params)}`,
+      `params: ${JSON.stringify(faces.params)}`,
       `lines: ${lines.length}`,
       "",
-      "Columns (every 0.25s): t | face | gx gy (+ = subject looks right/up) | pupil nx ny (-1..1) | head yaw pitch roll (deg) | blink | fps | detect ms",
+      "Columns (every 0.25s): t | faces | fps | detect ms | then one block per tracked face (S0 = first, blue): colour gx gy (+ = subject looks right/up) | pupil nx ny (-1..1) | head yaw pitch roll (deg) | blink",
       "",
     ];
   }
@@ -265,21 +267,29 @@ function createDebug({ filter, video }) {
         fpsFrames = 0;
         fpsStart = now;
       }
-      const s = filter.state;
+      const active = faces.slots.filter((x) => x.state.faceFound);
       if (now >= nextUi) {
         nextUi = now + 150;
-        const pm = filter.pupilMm();
+        const rows = active.map((x) => {
+          const s = x.state;
+          const pm = x.pupilMm();
+          return (
+            `#${x.index} ${x.colorName.padEnd(6)} gaze ${s.gx.toFixed(2)},${s.gy.toFixed(2)} -> pupil ${s.nx.toFixed(2)},${s.ny.toFixed(2)} (${pm.x.toFixed(1)},${pm.y.toFixed(1)}mm)` +
+            ` head ${s.yaw.toFixed(0)}/${s.pitch.toFixed(0)}/${s.roll.toFixed(0)}${s.blink > 0.55 ? " BLINK" : ""}`
+          );
+        });
         pre.textContent =
-          `face ${s.faceFound ? "YES" : "no "}  fps ${fps}  detect ${lastDetect.toFixed(0)}ms  cam ${video.videoWidth}x${video.videoHeight}\n` +
-          `gaze x ${s.gx.toFixed(2)} y ${s.gy.toFixed(2)}  ->  pupil ${s.nx.toFixed(2)}, ${s.ny.toFixed(2)}  (${pm.x.toFixed(1)}, ${pm.y.toFixed(1)}mm)${s.blink > 0.55 ? "  BLINK" : ""}\n` +
-          `head yaw ${s.yaw.toFixed(0)} pitch ${s.pitch.toFixed(0)} roll ${s.roll.toFixed(0)}\n` +
-          Object.entries(filter.params).map(([k, v]) => `${k} ${v}`).join("  ");
+          `faces ${active.length}  fps ${fps}  detect ${lastDetect.toFixed(0)}ms  cam ${video.videoWidth}x${video.videoHeight}\n` +
+          (rows.length ? rows.join("\n") + "\n" : "no face\n") +
+          Object.entries(faces.params).map(([k, v]) => `${k} ${v}`).join("  ");
       }
       if (now >= nextSample) {
         nextSample = now + 250;
-        push(
-          `${stamp(now)}s ${s.faceFound ? 1 : 0} | ${s.gx.toFixed(2)} ${s.gy.toFixed(2)} | ${s.nx.toFixed(2)} ${s.ny.toFixed(2)} | ${s.yaw.toFixed(0)} ${s.pitch.toFixed(0)} ${s.roll.toFixed(0)} | ${s.blink.toFixed(2)} | ${fps} | ${lastDetect.toFixed(0)}`
-        );
+        const blocks = active.map((x) => {
+          const s = x.state;
+          return `S${x.index} ${x.colorName} ${s.gx.toFixed(2)} ${s.gy.toFixed(2)} | ${s.nx.toFixed(2)} ${s.ny.toFixed(2)} | ${s.yaw.toFixed(0)} ${s.pitch.toFixed(0)} ${s.roll.toFixed(0)} | ${s.blink.toFixed(2)}`;
+        });
+        push(`${stamp(now)}s ${active.length} | ${fps} | ${lastDetect.toFixed(0)}${blocks.length ? " || " + blocks.join(" || ") : ""}`);
       }
     },
   };
