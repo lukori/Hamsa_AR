@@ -6,6 +6,10 @@ with by moving your head. Fully separate from the image-tracking gallery app in 
 folder - nothing outside `/face/` is used or changed.
 
 - Live at `https://lukori.github.io/Hamsa_AR/face/`
+- Reached from the gallery's start screen (the wall QR code) by the small link
+  **or be a HAMSA head**; the white round **X** at the top left of this page
+  (`#close-button` in `index.html`, a plain link to `../`) goes back to it. The
+  `?debug` panel sits below the X.
 - With the diagnostic tools: `.../face/?debug`
 
 ## How it works
@@ -89,7 +93,7 @@ gave the expected `gx`/`gy` signs and the object turned with the head.
 URL parameters (also set by the +/- buttons in `?debug`, which update the
 address bar so you can copy the tuned link): `s` (size, 1 = real size, default
 2.9), `dy` (cm up, default -0.55), `dz` (cm forward, default 8.5), `shake`
-(2.2), `grav` (gravity, 1100), `bounce` (0.8), `bouncey` (0.3), `shakey` (0.2) and
+(2.2), `grav` (gravity, 1100), `bounce` (0.8), `bouncey` (0.65), `shakey` (0.2) and
 `gaze` (0). `shakey` scales only the UP/DOWN part of the head's push. At the tuned
 0.2, nodding barely moves the pupil, but circular head motion no longer spins
 it around the rim (simulated: ~0 turns for gentle circles, against 3-7 turns at

@@ -79,6 +79,12 @@ Tap **Start Experience** to trigger the camera permission prompt (this must
 stay a real, explicit tap — auto-starting on page load silently breaks on
 iPhone).
 
+Under the Start button there is a smaller outlined link, **or be a HAMSA head**
+(`<a class="secondary-link" href="face/">` in `index.html`), that opens the
+separate selfie eye filter in `/face/` (see `face/README.md`). That link and its
+CSS are the only change the gallery got for it; `js/` is untouched. The face page
+has a white round **X** button at the top left that returns here.
+
 ## Project structure
 
 ```
@@ -94,6 +100,7 @@ iPhone).
     /models                   GLB files go here
     /videos                   MP4 files go here
     /textures                 plain images used as textures (e.g. "sprite-rain" sources), not trigger images
+  /face                     separate selfie "eye filter" (own README; nothing here depends on it)
   /tools
     compile.html              local, offline tool to compile new trigger images into targets.mind
     points-from-image.html    local, offline tool to turn a reference image into a "points" asset

@@ -42,9 +42,26 @@
       border: none; background: #fff; color: #000; cursor: pointer;
     }
     button#start-button:disabled { opacity: 0.5; cursor: default; }
+    /* Close: back to the wall experience (the page one level up). Always visible, above everything. */
+    #close-button {
+      position: fixed; z-index: 40;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      left: calc(env(safe-area-inset-left, 0px) + 12px);
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      -webkit-tap-highlight-color: transparent;
+    }
+    #close-button:active { transform: scale(0.94); }
   </style>
 </head>
 <body>
+  <a id="close-button" href="../" aria-label="Close">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M6 6L18 18M18 6L6 18" stroke="#000" stroke-width="2.8" stroke-linecap="round" fill="none" />
+    </svg>
+  </a>
+
   <div id="stage">
     <video id="cam" playsinline muted autoplay></video>
     <canvas id="gl"></canvas>
@@ -52,7 +69,7 @@
 
   <div id="start-screen" class="overlay">
     <h1>Eye Filter</h1>
-    <p>Put the eye on your face. It looks where you look.</p>
+    <p>Put the eye on your face. Shake, tilt and circle your head to play with the pupil.</p>
     <button id="start-button">Start</button>
     <p class="hint">You'll be asked to allow camera access. Everything stays on your phone; nothing is uploaded.</p>
   </div>
@@ -62,6 +79,6 @@
     <p id="error-message">Couldn't start.</p>
   </div>
 
-  <script type="module" src="js/main.js?v=8"></script>
+  <script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>

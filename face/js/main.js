@@ -164,7 +164,7 @@ function createDebug({ faces, video }) {
 
   const wrap = document.createElement("div");
   wrap.style.cssText =
-    "position:fixed;top:4px;left:4px;z-index:30;max-width:96vw;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:none;";
+    "position:fixed;top:calc(env(safe-area-inset-top,0px) + 64px);left:4px;z-index:30;max-width:96vw;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:none;";
   const pre = document.createElement("pre");
   pre.style.cssText = "margin:0;padding:6px 8px;color:#0f0;background:rgba(0,0,0,0.65);white-space:pre-wrap;";
   const bar = document.createElement("div");
