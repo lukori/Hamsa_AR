@@ -8,24 +8,31 @@ install, works in iOS Safari and Android Chrome, fully static, no backend.
 
 ## Current status
 
-The app has **2 experiences** across **9 trigger images**, all real content:
+The app has **2 experiences** across **5 trigger images**, all real content:
 the yellow poster (video overlay) and the "What Luck / Luka Or" text panel
-(3D coin rain), where four real photos of the same print on the gallery wall
-plus a crop of its title block, plus three low-resolution copies of the best images (a resolution experiment), all lead to the same coin rain, so it works
-under different lighting and distances. The
-earlier placeholder triggers (spinning primitive, second coin rain, fish model
-on a generated image) were removed; see git tag
-`checkpoint-before-placeholder-removal` for the last state that had them.
+(3D coin rain). The text panel is recognized from four different real photos of
+the print (so it keeps working under different lighting); all four lead to the
+same coin rain and only one shows at a time. Earlier placeholder triggers, a
+title-block crop and a few other experimental images were removed; the git tags
+`checkpoint-before-placeholder-removal` and `checkpoint-before-final-cleanup`
+hold those earlier states.
 
 | Trigger | Trigger image | Content type | Files |
 | --- | --- | --- | --- |
 | `trigger-01` | `yellow_poster_trigger.jpg` (real) | Video overlay (real content) | `assets/videos/fishy-trigger01.mp4` |
-| `trigger-02a` | `what_luck_text_trigger_photo1.jpg` (real wall photo) | Rain of eye coins (3D); all three share `group: "text-panel"`, only one shows at a time | `assets/models/flateye.glb` |
-| `trigger-02b` | `what_luck_text_trigger_photo2.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
-| `trigger-02c` | `what_luck_text_trigger_photo3.jpg` (real, high-res wall photo) | Same coin rain | `assets/models/flateye.glb` |
-| `trigger-02d` | `what_luck_text_trigger_gallery.jpg` (photo taken in the gallery, cropped to the print's edge) | Same coin rain | `assets/models/flateye.glb` |
-| `trigger-02-title` | `what_luck_title_crop.jpg` (title block only, cut from the gallery photo) | Same coin rain, re-centred on the whole print via `contentTransform` | `assets/models/flateye.glb` |
-| `trigger-02d-lo`, `trigger-02c-lo`, `trigger-02-title-lo` | `*_lo.jpg` copies of the gallery photo, photo 3 and the title crop, scaled to 526 px wide (title: 397x207) | Same coin rain (experiment: does matching the target's resolution to the phone's low-res camera feed help? see below) | `assets/models/flateye.glb` |
+| `trigger-02a` | `what_luck_text_trigger_photo1.jpg` (real wall photo, 526x745) | Rain of eye coins (3D); the four `trigger-02*` share `group: "text-panel"` | `assets/models/flateye.glb` |
+| `trigger-02b` | `what_luck_text_trigger_photo2.jpg` (real wall photo, 900x1200) | Same coin rain | `assets/models/flateye.glb` |
+| `trigger-02d` | `what_luck_text_trigger_gallery.jpg` (photo taken in the gallery, cropped to the print's edge, 900x1276) | Same coin rain | `assets/models/flateye.glb` |
+| `trigger-02d-lo` | `what_luck_text_trigger_gallery_lo.jpg` (the same photo scaled to 526 px wide) | Same coin rain | `assets/models/flateye.glb` |
+
+**What the debug sessions showed (full frame, iPhone, 480x640 camera feed):**
+`trigger-02a` does most of the tracking (84-92% of the time); the other
+variants add 1-3 percentage points. With the 2-second hold the coin rain was
+on screen 100% of the time with zero disappearances. Tracking only part of the
+panel (zoomed in) works poorly (23-33% tracked) - the app is meant to be used
+with the whole panel in frame. A title-block crop and a `?cam=hd` camera-size
+request were also tried and dropped (the title never locked; iOS ignored the
+camera-size request).
 
 `trigger-01` now uses a real exhibition image and real video content, no
 longer generated placeholders — see "Preparing real trigger images" below
@@ -199,7 +206,7 @@ There is intentionally no CMS — adding a trigger is a two-step process:
      continuously flips/tumbles around its OWN randomly chosen axis
      (`flipSpeed` turns/sec, `flipSpeedVariance`) rather than a shared axis —
      a shared axis/speed for every instance is what makes procedural
-     animation read as robotic or copy-pasted. `trigger-02a`/`02b`/`02c` use this for a
+     animation read as robotic or copy-pasted. The `trigger-02*` text-panel triggers use this for a
      "rain of coins" effect (a flat, coin-shaped eye model that tumbles like
      a flipped coin while it falls). `emissiveBoost` (default 0.9) blends the
      model's own texture in as emissive light so it stays evenly bright
@@ -299,7 +306,7 @@ found) - without that, near-identical variants matching together would each
 draw their own overlapping copy of the content. Append new images at the END
 of the compile order so existing `targetIndex` values don't shift, and bump
 `MIND_VERSION`. Each target adds per-frame matching work, so keep the total
-count modest. Currently: `trigger-02a`-`02d`, `trigger-02-title` and the three `-lo` copies share `text-panel`.
+count modest. Currently: `trigger-02a`, `02b`, `02d` and `02d-lo` share `text-panel`.
 
 ## Holding content through brief tracking drops (`lostGraceMs`)
 
@@ -307,7 +314,7 @@ MindAR hides an image's content the instant tracking drops. An image with few
 trackable features (like the text panel: ~20 tracking points vs ~100 for the
 yellow poster) loses tracking for a frame or two even while it's in view,
 which reads as the content flickering away. A trigger can opt in to
-`lostGraceMs: 500` in `config.js` (**currently 2000ms on the text-panel triggers**; 500ms was tried first - git tag `checkpoint-grace-hold-500ms` - then 1000ms; a debug log from an iPhone showed 4 of 8 tracking gaps lasting 1.0-1.8s, so 2000ms): on a loss, the content stays visible,
+`lostGraceMs: 500` in `config.js` (**currently 2000ms on the text-panel triggers**; 500ms was tried first - git tag `checkpoint-grace-hold-500ms` - then 1000ms; a debug log from an iPhone showed 4 of 8 tracking gaps lasting 1.0-1.8s, and 2000ms left zero disappearances in full-frame sessions): on a loss, the content stays visible,
 frozen at the last known pose, for that many milliseconds; if the image is
 re-found in time it carries on, otherwise it disappears as usual. Default is 0
 (off, identical to before) - the yellow poster doesn't use it. If the held
@@ -326,8 +333,15 @@ hold, or when the shown variant switches to another one (each variant sees the
 print from a slightly different estimated pose), the content glides from where
 it was being displayed to the live tracked pose over 300ms (`GLIDE_MS` in
 `main.js`). Poses are compared as the content's world pose, so it works across
-variants with different anchor frames (e.g. the title-block crop). The yellow
+variants with different anchor frames. The yellow
 poster has neither a group nor a hold and is left exactly as MindAR drives it.
+
+Handing over from a variant that is only being *held* to another one is delayed
+until that other one has stayed tracked for 500ms (`TAKEOVER_MS` in
+`main.js`): in debug logs, about half of such switches went to a variant that
+lost tracking again within 0.7s, yanking the content to a different pose and
+back for nothing. The first lock, and a switch to a variant that is already
+established, are immediate.
 
 Open the page with `?debug` appended to the URL (e.g.
 `https://lukori.github.io/Hamsa_AR/?debug`) to get a small on-screen overlay,
@@ -345,38 +359,21 @@ a second showing which triggers were live, held and shown. On a phone, Save log
 opens the share sheet (send it straight to yourself or a chat) and falls back
 to a file download; Copy log puts the text on the clipboard.
 
-## Camera resolution test (`?cam=hd`) and the low-res target copies
-
-MindAR asks the browser for a camera with no resolution, so phones return their
-default - an iPhone returned just **480x640**, small for tracking fine print.
-Open the page with `?cam=hd` (1280x720) or `?cam=fhd` (1920x1080) to ask for a
-bigger feed (the browser may still give less; the debug log header records what
-it actually returned in `camera video:` and `camera track settings:`). Without
-`?cam` nothing changes. A bigger feed costs processing time, so the log's
-STATE lines also record `fps` (render frames/s) and `trackHz` (tracking
-updates/s) to compare the modes.
-
-The first debug log (default camera) showed the lowest-resolution photo
-(`trigger-02a`, 526 px wide) doing nearly all the tracking while the
-900 px-wide images barely locked, which suggests a mismatch between a
-high-res target and a low-res camera feed. The three `-lo` triggers are
-526 px-wide copies of the gallery photo, photo 3 and the title crop, in the
-same group, to test that. If they don't help (the log lists every trigger's
-live time, shown or not), delete them and their images.
-
 ## Using a crop of the print as a trigger (`contentTransform`)
 
-A part of a print with larger, more distinctive shapes can track far better
-than the whole print: the title block of the text panel has ~82 tracking
-points against ~20 for the full panel (measured with MindAR's own compiler -
-counts are a proxy, not proof of on-device behavior). MindAR anchors content to
+A part of a print can have more tracking points than the whole print (the
+title block of the text panel had ~82 against ~20 for the full panel, measured
+with MindAR's own compiler) - but that did NOT translate on a real device: the
+title-block target never locked in four debug sessions and was removed, so
+treat the point counts as a rough proxy only. The mechanism below is kept for
+any future partial-view target. MindAR anchors content to
 the trigger image's own centre and treats the image's width as 1 unit, so for a
 crop, content authored in whole-print units must be moved and scaled. Set
 `contentTransform: { position: [x, y, 0], scale }` on the trigger in
 `config.js`: `scale` = (print width in px) / (crop width in px), and `position`
 = the offset from the crop's centre to the print's centre, in units of the
-crop's width (y up). `trigger-02-title` is the worked example (crop at
-x 125-805, y 90-445 of the 900x1276 gallery photo). To verify an offset,
+crop's width (y up). It was worked out and verified for a title-block crop (x 125-805, y 90-445 of
+the 900x1276 gallery photo; see git tag `checkpoint-before-final-cleanup`). To verify an offset,
 render the full photo and the crop together at the computed positions: the
 text should coincide exactly, with no double image.
 

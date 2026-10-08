@@ -5,7 +5,7 @@ import * as THREE from "three";
 // without a unique URL per version, a device that already loaded the app
 // once can keep running stale JS after a deploy. Bump this number whenever
 // config.js or sceneBuilder.js changes.
-import { triggers } from "./config.js?v=23";
+import { triggers } from "./config.js?v=24";
 import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 
 // Same problem, same fix, separate counter: targets.mind has no version in
@@ -14,33 +14,13 @@ import { buildAnchorContent } from "./sceneBuilder.js?v=14";
 // against old trigger images (this bit us once - two brand new trigger
 // images "didn't load" because the phone was still holding a cached
 // targets.mind from before they existed).
-const MIND_VERSION = 11;
+const MIND_VERSION = 12;
 
 const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
 const errorScreen = document.getElementById("error-screen");
 const errorMessage = document.getElementById("error-message");
 const container = document.getElementById("ar-container");
-
-// Optional camera resolution test (?cam=hd or ?cam=fhd). MindAR asks the
-// browser for a camera with NO size, so phones hand back their default - an
-// iPhone gave just 480x640, small for tracking fine print. When asked, wrap
-// getUserMedia to add an "ideal" size; if the browser refuses the merged
-// request, fall back to MindAR's original one. Default behavior (no ?cam) is
-// untouched.
-const CAM_SIZES = { hd: [1280, 720], fhd: [1920, 1080] };
-const camMode = new URLSearchParams(location.search).get("cam");
-if (CAM_SIZES[camMode] && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-  const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-  const [w, h] = CAM_SIZES[camMode];
-  navigator.mediaDevices.getUserMedia = (constraints) => {
-    if (constraints && typeof constraints.video === "object") {
-      const sized = { ...constraints, video: { ...constraints.video, width: { ideal: w }, height: { ideal: h } } };
-      return original(sized).catch(() => original(constraints));
-    }
-    return original(constraints);
-  };
-}
 
 const clock = new THREE.Clock();
 let started = false;
@@ -132,7 +112,6 @@ async function startExperience() {
         `userAgent: ${navigator.userAgent}`,
         `screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}x, viewport ${innerWidth}x${innerHeight}`,
         `camera video: ${video ? `${video.videoWidth}x${video.videoHeight}` : "n/a"}`,
-        `camera param: ${camMode || "default (no ?cam)"}`,
         `camera track settings: ${(() => {
           try {
             const st = video.srcObject.getVideoTracks()[0].getSettings();
@@ -236,7 +215,7 @@ async function startExperience() {
         return `${m.config.id.padEnd(17)} ${state.padEnd(11)} ${shown ? "SHOWN" : "     "}${m.glide ? " glide" : ""}  found${m.founds}/lost${m.losts}`;
       });
       const vid = container.querySelector("video");
-      const camLine = `camera ${vid ? `${vid.videoWidth}x${vid.videoHeight}` : "?"} (${camMode || "default"})`;
+      const camLine = `camera ${vid ? `${vid.videoWidth}x${vid.videoHeight}` : "?"}`;
       debugEl.textContent = camLine + "\n" + rows.join("\n") + "\n--\n" + debugEvents.join("\n");
       if (now >= nextDebugSample) {
         nextDebugSample = now + 500;
@@ -289,15 +268,26 @@ async function startExperience() {
     // that's actually tracked right now beats one that's only being held
     // through a lost-tracking grace period (see `lostGraceMs` below); among
     // equals, the one already showing keeps it, else the first one found.
+    //
+    // Handing over from a variant that's only being HELD to another one that
+    // just locked on is delayed until that other one has stayed tracked for
+    // TAKEOVER_MS: in debug logs, about half of such switches went to a
+    // variant that lost tracking again within 0.7s, yanking the content to a
+    // different pose and back for nothing.
+    const TAKEOVER_MS = 500;
     const groups = {};
     function refreshGroup(name) {
       const ms = groups[name];
+      const now = performance.now();
       const prev = ms.find((m) => m.shown);
-      const winner =
-        ms.find((m) => m.shown && m.live) ||
-        ms.find((m) => m.live) ||
-        ms.find((m) => m.shown && m.grace) ||
-        ms.find((m) => m.grace);
+      let winner;
+      if (prev && prev.live) {
+        winner = prev;
+      } else if (prev && prev.grace) {
+        winner = ms.find((m) => m.live && now - m.liveSince >= TAKEOVER_MS) || prev;
+      } else {
+        winner = ms.find((m) => m.live) || null;
+      }
       if (winner && prev && winner !== prev && (prev.live || prev.grace)) {
         startGlide(winner, poseWorld(prev));
         debugLog(`switch ${prev.config.id} -> ${winner.config.id}`);
@@ -349,6 +339,7 @@ async function startExperience() {
         live: false, // MindAR is tracking this image right now
         grace: false, // tracking just dropped; content is held frozen for graceMs
         graceUntil: 0,
+        liveSince: 0,
         raw: new THREE.Matrix4(), // latest pose from MindAR while live
         shownMatrix: new THREE.Matrix4(), // pose last actually displayed
         glide: null,
@@ -367,6 +358,7 @@ async function startExperience() {
         const wasHeld = member.grace;
         member.live = true;
         member.grace = false;
+        member.liveSince = performance.now();
         member.founds += 1;
         member.raw.copy(anchor.group.matrix);
         if (triggerConfig.group) refreshGroup(triggerConfig.group);
@@ -410,6 +402,7 @@ async function startExperience() {
     // pose is the raw tracked pose, or the eased pose during a glide.
     function updatePoses() {
       const now = performance.now();
+      for (const name in groups) refreshGroup(name);
       for (const m of members) {
         if (!m.managed) continue;
         const g = m.anchor.group;
