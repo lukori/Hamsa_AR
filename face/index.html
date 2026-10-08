@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Eye Filter</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    :root { color-scheme: dark; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #000; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    /* Both the camera video and the 3D canvas live in #stage, sized in JS to
+       "cover" the screen at the camera's aspect ratio, and mirrored together
+       (selfie view). */
+    #stage { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scaleX(-1); }
+    #stage video, #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .overlay {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 20px; padding: 24px; box-sizing: border-box; text-align: center;
+      background: radial-gradient(circle at 50% 40%, #1a1a2e 0%, #05050a 100%);
+      color: #f5f5f7;
+    }
+    .overlay.hidden { display: none; }
+    .overlay h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+    .overlay p { font-size: 15px; line-height: 1.5; color: #b8b8c2; max-width: 340px; margin: 0; }
+    .overlay .hint { font-size: 12px; color: #7a7a86; max-width: 300px; }
+    button#start-button {
+      font-size: 17px; font-weight: 600; padding: 14px 36px; border-radius: 999px;
+      border: none; background: #fff; color: #000; cursor: pointer;
+    }
+    button#start-button:disabled { opacity: 0.5; cursor: default; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <video id="cam" playsinline muted autoplay></video>
+    <canvas id="gl"></canvas>
+  </div>
+
+  <div id="start-screen" class="overlay">
+    <h1>Eye Filter</h1>
+    <p>Put the eye on your face. It looks where you look.</p>
+    <button id="start-button">Start</button>
+    <p class="hint">You'll be asked to allow camera access. Everything stays on your phone; nothing is uploaded.</p>
+  </div>
+
+  <div id="error-screen" class="overlay hidden">
+    <h1>Something went wrong</h1>
+    <p id="error-message">Couldn't start.</p>
+  </div>
+
+  <script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
